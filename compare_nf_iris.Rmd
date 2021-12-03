@@ -1,0 +1,130 @@
+---
+title: "R Notebook"
+output: html_document
+---
+  
+  
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+library(GGally)
+library(ranger)
+library(reticulate)
+source("generative_ranger.R")
+```
+
+```{python, echo=FALSE, warning=FALSE, message=FALSE}
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn import datasets
+import torch
+import pyro
+import pyro.distributions as dist
+import pyro.distributions.transforms as T
+import matplotlib.pyplot as plt
+```
+
+# Parameters
+```{r}
+n_new <- 300L
+p <- 4L
+```
+
+# Use iris data
+```{r}
+idx <- sample(nrow(iris), 2/3 * nrow(iris))
+x_train_df <- iris[idx, -5]
+x_test_df <- iris[-idx, -5]
+
+x_train <- as.matrix(x_train_df)
+x_test <- as.matrix(x_test_df)
+```
+
+# Create synthetic data with Pyro NF (Python)
+```{python}
+# Create base distribution for flow
+base_dist = dist.Normal(torch.zeros(r.p), torch.ones(r.p))
+
+# Define coupling spline transformation (see https://docs.pyro.ai/en/stable/distributions.html?highlight=Spline#splinecoupling)
+transform_1 = T.affine_autoregressive(r.p)
+transform_2 = T.spline_autoregressive(r.p)
+flow_dist = dist.TransformedDistribution(base_dist, [transform_1, transform_2])
+parameters = list(transform_1.parameters()) + list(transform_2.parameters())
+
+# Train Flow
+steps = 4001
+dataset = torch.tensor(r.x_train, dtype=torch.float)
+optimizer = torch.optim.Adam(parameters, lr=1e-2)
+for step in range(steps+1):
+  optimizer.zero_grad()
+  loss = -flow_dist.log_prob(dataset).mean()
+  loss.backward()
+  optimizer.step()
+  flow_dist.clear_cache()
+  
+  if step % 200 == 0:
+    print('step: {}, loss: {}'.format(step, loss.item()))
+
+# Generate new samples
+X_new = flow_dist.sample(torch.Size([r.n_new,])).detach().numpy()
+```
+
+# Generative RF
+```{r}
+library(ranger)
+source("generative_ranger.R")
+x_new_rf <- generative_ranger(x_real = x_train_df, n_new = n_new, num.trees = 100, 
+                              min.node.size = 10)
+```
+
+# Plot
+```{r}
+x_new_nf <- py$X_new
+colnames(x_new_nf) <- colnames(x_train)
+df <- rbind(data.frame(data = "Original", x_train_df), 
+            data.frame(data = "NF", as.data.frame(x_new_nf)), 
+            data.frame(data = "RF", as.data.frame(x_new_rf)))
+df$data <- factor(df$data)
+```
+
+NF:
+```{r}
+ggpairs(df[df$data %in% c("Original", "NF"), ], 
+        columns = 2:5, ggplot2::aes(colour=data, shape=data), 
+        progress = FALSE) + 
+  theme_bw()
+```
+
+RF:
+```{r}
+ggpairs(df[df$data %in% c("Original", "RF"), ], 
+        columns = 2:5, ggplot2::aes(colour=data, shape=data), 
+        progress = FALSE) + 
+  theme_bw()
+```
+
+# Compare
+## Correlations (as in Goncalves et al. 2020)
+Data utility metric, i.e. how close is the data to the original?
+```{r}
+util <- function(orig, synth) {
+  norm(cor(orig) - cor(synth), type = "F")
+}
+c(NF = util(x_train, x_new_nf), 
+  RF = util(x_train, x_new_rf))
+```
+
+## Proportion of overfitting (as in Lenz et al. 2021)
+Data disclosure metric, i.e. is it too close to the original?
+```{r}
+disc <- function(orig_train, orig_test, synth) {
+  (util(orig_test, synth) - util(orig_train, synth)) / util(orig_test, synth)
+}
+c(NF = disc(x_train, x_test, x_new_nf),
+  RF = disc(x_train, x_test, x_new_rf))
+```
+
+
+
+
+
