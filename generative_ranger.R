@@ -1,8 +1,5 @@
 
 # Things to try: 
-# * Use only OOB data
-# * Include synthetic data for probability estimation
-# * How to benchmark generative models?
 # * How can iteration (run again with x_synth=x_new from previous run) make sense?
 
 library(ranger)
@@ -12,6 +9,7 @@ library(ranger)
 #' @param x_real Original data (data.frame).
 #' @param x_synth Naive synthetic data, if NULL will be sampled from marginals.
 #' @param n_new Number of synthetic observations to sample.
+#' @param oob Use only out-of-bag data to calculate leaf probabilities?
 #' @param ... Passed on to the ranger() call; use for 'num.trees', 'min.node.size', etc.
 #'
 #' @return data.frame with synthetic data.
@@ -19,7 +17,8 @@ library(ranger)
 #'
 #' @examples
 #' generative_ranger(x_real = iris, n_new = 100, num.trees = 50)
-generative_ranger <- function(x_real, x_synth = NULL, n_new, ...) {
+generative_ranger <- function(x_real, x_synth = NULL, n_new, 
+                              oob = FALSE, ...) {
   
   p <- ncol(x_real) 
   factor_cols <- sapply(x_real, is.factor)
@@ -40,9 +39,15 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, ...) {
   # Get terminal nodes for all observations
   pred <- predict(rf, x_real, type = "terminalNodes")$predictions
   
+  # If OOB, use only OOB trees
+  if (oob) {
+    inbag <- (do.call(cbind, rf$inbag.counts) > 0)[1:nrow(x_real), ]
+    pred[inbag] <- NA
+  }
+  
   # Sample new observations and their terminal nodes
   probs <- apply(pred, 2, function(x) {
-    tabulate(x, nbins = max(pred))/length(x)
+    tabulate(x, nbins = max(pred, na.rm = TRUE))/sum(!is.na(x))
   })
   probs[probs <= 1/nrow(x_real)] <- 0 # Avoid terminal nodes with just one obs
   nodeids <- apply(probs, 2, function(x) {
@@ -103,7 +108,13 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, ...) {
   
   for (i in 1:n_new) {
     # Randomly select tree for each obs. (mixture distribution with equal prob.)
-    tree <- sample(ncol(pred), 1)
+    if (oob) {
+      # Avoid NAs
+      tree <- sample(which(!is.na(mean_sd_trees[1,"sd",i,])), 1)
+    } else {
+      tree <- sample(ncol(pred), 1)
+    }
+    
     for (j in 1:p) {
       if (factor_cols[j]) {
         colname <- names(factor_cols)[j]
