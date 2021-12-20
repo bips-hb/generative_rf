@@ -1,7 +1,4 @@
 
-# Things to try: 
-# * How can iteration (run again with x_synth=x_new from previous run) make sense?
-
 library(ranger)
 
 #' Generative Random Forests
@@ -10,6 +7,7 @@ library(ranger)
 #' @param x_synth Naive synthetic data, if NULL will be sampled from marginals.
 #' @param n_new Number of synthetic observations to sample.
 #' @param oob Use only out-of-bag data to calculate leaf probabilities?
+#' @param dist Distribution to fit in terminal nodes to continuous data. Currently implemented: "normal", "exponential", "geometric", "lognormal", "Poisson".
 #' @param ... Passed on to the ranger() call; use for 'num.trees', 'min.node.size', etc.
 #'
 #' @return data.frame with synthetic data.
@@ -17,8 +15,8 @@ library(ranger)
 #'
 #' @examples
 #' generative_ranger(x_real = iris, n_new = 100, num.trees = 50)
-generative_ranger <- function(x_real, x_synth = NULL, n_new, 
-                              oob = FALSE, ...) {
+generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
+                              dist = "normal", ...) {
   
   p <- ncol(x_real) 
   factor_cols <- sapply(x_real, is.factor)
@@ -38,6 +36,7 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new,
   
   # Get terminal nodes for all observations
   pred <- predict(rf, x_real, type = "terminalNodes")$predictions
+  num_trees <- ncol(pred)
   
   # If OOB, use only OOB trees
   if (oob) {
@@ -45,87 +44,82 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new,
     pred[inbag] <- NA
   }
   
-  # Sample new observations and their terminal nodes
+  # Get probabilities of terminal nodes for each tree 
+  # probs dims: [nodeid, tree]
   probs <- apply(pred, 2, function(x) {
-    tabulate(x, nbins = max(pred, na.rm = TRUE))/sum(!is.na(x))
+    tab <- tabulate(x, nbins = max(pred, na.rm = TRUE))
+    tab[tab == 1] <- 0 # Avoid terminal nodes with just one obs
+    tab/sum(tab)
   })
-  probs[probs <= 1/nrow(x_real)] <- 0 # Avoid terminal nodes with just one obs
+
+  # Sample new observations and get their terminal nodes
+  # nodeids dims: [new obs, tree]
   nodeids <- apply(probs, 2, function(x) {
     sample(length(x), n_new, replace = TRUE, prob = x)
   })
   
-  # Non-factor cols: Sample from normal distribution
-  # For each observation, get means and sds for each variable from terminal node
-  mean_sd_trees <- simplify2array(lapply(1:rf$num.trees, function(tree) {
-    pt <- pred[, tree]
-    nd <- nodeids[, tree]
-    
-    means <- sapply(unique(pt), function(t) {
-      apply(x_real[which(pt == t), !factor_cols, drop = FALSE], 2, mean, na.rm = TRUE)
-    })
-    if (!is.matrix(means)) {
-      means <- matrix(means, nrow = 1)
-    }
-    colnames(means) <- unique(pt)
-    sds <- sapply(unique(pt), function(t) {
-      apply(x_real[which(pt == t), !factor_cols, drop = FALSE], 2, sd, na.rm = TRUE)
-    })
-    if (!is.matrix(sds)) {
-      sds <- matrix(sds, nrow = 1)
-    }
-    colnames(sds) <- unique(pt)
-    
-    mean_sd <- simplify2array(lapply(nd, function(x) {
-      cbind(mean = means[, as.character(x)], sd = sds[, as.character(x)])
-    }))
-    mean_sd
-  }))
-  # Dims: vars, mean/sd, obs, trees
-  
-  # Factor cols: Sample from multinomial distribution
-  # For each observation, get class probs. for each variable from terminal node
-  class_probs_trees <- lapply(factor_col_names, function(col) {
-    simplify2array(lapply(1:rf$num.trees, function(tree) {
-      pt <- pred[, tree]
-      nd <- nodeids[, tree]
-      
-      probs_nd <- sapply(unique(pt), function(t) {
-        table(x_real[which(pt == t), col, drop = FALSE])
+  # Fit continuous distribution in all used terminal nodes
+  # params dims: [[tree]][[nodeid]][[colname]][distr. parameters]
+  if (any(!factor_cols)) {
+    params <- lapply(1:num_trees, function(tree) {
+      unique_nodeids <- unique(nodeids[, tree])
+      res <- lapply(unique_nodeids, function(nodeid) {
+        apply(x_real[which(pred[, tree] == nodeid), !factor_cols, drop = FALSE], 2, function(x) {
+          MASS::fitdistr(x, dist)$estimate
+        })
       })
-      colnames(probs_nd) <- unique(pt)
-      
-      probs_obs <- sapply(nd, function(x) {
-        probs_nd[, as.character(x)]
-      })
-      probs_obs
-    }))
-  })
-  names(class_probs_trees) <- factor_col_names
-  # Dims: vars, levels, obs, trees
+      names(res) <- unique_nodeids
+      res
+    })
+  }
   
+  # Calculate class probabilities for categorical data in all used terminal nodes
+  # class_probs dims: [[tree]][[nodeid]][[colname]][class probs]
+  if (any(factor_cols)) {
+    class_probs <- lapply(1:num_trees, function(tree) {
+      unique_nodeids <- unique(nodeids[, tree])
+      res <- lapply(unique_nodeids, function(nodeid) {
+        lapply(x_real[which(pred[, tree] == nodeid), factor_cols, drop = FALSE], function(x) {
+         table(x)
+        })
+      })
+      names(res) <- unique_nodeids
+      res
+    })
+  }
+ 
   # Sample new data from mixture distribution over trees
   data_new <- data.frame(matrix(NA, nrow = n_new, ncol = p))
-  
   for (i in 1:n_new) {
     # Randomly select tree for each obs. (mixture distribution with equal prob.)
-    if (oob) {
-      # Avoid NAs
-      tree <- sample(which(!is.na(mean_sd_trees[1,"sd",i,])), 1)
-    } else {
-      tree <- sample(ncol(pred), 1)
-    }
+    tree <- sample(num_trees, 1)
     
+    # Sample from distribution in terminal node
     for (j in 1:p) {
+      colname <- names(factor_cols)[j]
+      nodeid <- as.character(nodeids[i, tree])
       if (factor_cols[j]) {
-        colname <- names(factor_cols)[j]
-        draw <- rmultinom(1, 1, prob = class_probs_trees[[colname]][, i, tree])
+        # Factor columns: Multinomial distribution
+        draw <- rmultinom(1, 1, prob = class_probs[[tree]][[nodeid]][[colname]])
         data_new[i, j] <- rownames(draw)[draw == 1]
       } else {
-        data_new[i, j] <- rnorm(1,
-                                mean = mean_sd_trees[j, "mean", i, tree], 
-                                sd = mean_sd_trees[j, "sd", i, tree])
+        # Continuous columns: Match estimated distribution parameters with r...() function
+        if (dist == "normal") {
+          data_new[i, j] <- rnorm(1, mean = params[[tree]][[nodeid]]["mean", colname], 
+                                  sd = params[[tree]][[nodeid]]["sd", colname])
+        } else if (dist == "exponential") {
+          data_new[i, j] <- rexp(1, params[[tree]][[nodeid]][colname])
+        } else if (dist == "geometric") {
+          data_new[i, j] <- rgeom(1, params[[tree]][[nodeid]][colname])
+        } else if (dist %in% c("log-normal", "lognormal")) {
+          data_new[i, j] <- rlnorm(1, meanlog = params[[tree]][[nodeid]]["meanlog", colname], 
+                                   sdlog = params[[tree]][[nodeid]]["sdlog", colname])
+        } else if (dist == "Poisson") {
+          data_new[i, j] <- rpois(1, params[[tree]][[nodeid]][colname])
+        } else {
+          stop("Unknown distribution.")
+        }
       }
-      
     }
   }
   
