@@ -18,6 +18,7 @@ library(ranger)
 generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
                               dist = "normal", ...) {
   
+  x_real <- data.frame(x_real)
   p <- ncol(x_real) 
   factor_cols <- sapply(x_real, is.factor)
   factor_col_names <- names(factor_cols)[factor_cols]
