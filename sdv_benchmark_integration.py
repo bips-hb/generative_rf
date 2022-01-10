@@ -53,7 +53,7 @@ grf_synthesizer(real_data={"example": my_dat}, metadata=metadata)
 my_real_data = my_dat
 my_synthetic_data  = grf_synthesizer(real_data={"example": my_dat}, metadata=metadata)
 
-evaluate(my_real_data, my_synthetic_data, aggregate=False)
+evaluate(real_data= my_real_data, synthetic_data= my_synthetic_data['example'], aggregate=False)
 
 ######################################
 # Integration into SDV benchmark framework
