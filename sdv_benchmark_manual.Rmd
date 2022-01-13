@@ -1,0 +1,110 @@
+---
+title: "SDV Benchmark (manually)"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(reticulate)
+source("generative_ranger.R")
+```
+
+```{python, include=FALSE}
+import numpy as np
+from sdv.tabular import GaussianCopula
+import sdgym
+from sdgym.synthesizers import Independent
+from sdgym.synthesizers import Identity
+```
+
+```{r, include=FALSE}
+my_generative_ranger <- function(x) {
+  x_r <- py_to_r(x)
+  
+  # Chars and logicals to factors
+  idx_char <- sapply(x_r, is.character)
+  x_r[idx_char] <- as.data.frame(lapply(x_r[idx_char], as.factor))
+  idx_logical <- sapply(x_r, is.logical)
+  x_r[idx_logical] <- as.data.frame(lapply(x_r[idx_logical], as.factor))
+  
+  # Run generative RF
+  res <- generative_ranger(x_real = x_r, x_synth = NULL, n_new = nrow(x_r),
+                           num.trees = 10, min.node.size = 50)
+  
+  # Convert logicals back
+  if (any(idx_logical)) {
+    res[idx_logical] <- as.data.frame(lapply(res[idx_logical], function(x) {x == "TRUE"}))
+  }
+  
+   # Convert chars back
+  if (any(idx_char)) {
+    res[idx_char] <- as.data.frame(lapply(res[idx_char], as.character))
+  }
+  
+  # Round integers
+  check.integer <- function(x) {
+    is.numeric(x) && all(x == as.integer(x))
+  }
+  idx_int <- sapply(py_to_r(x), check.integer)
+  if (any(idx_int)) {
+    res[idx_int] <- as.data.frame(lapply(res[idx_int], round))
+    res[idx_int] <- as.data.frame(lapply(res[idx_int], as.integer))
+  }
+  
+  # Return synthetic data
+  colnames(res) <- colnames(x_r)
+  res
+}
+```
+
+
+```{python}
+def gen_rf(real_data, metadata):
+    table_name = metadata.get_tables()[0]
+    return {table_name: r.my_generative_ranger(real_data[table_name])}
+
+```
+
+# Generative RF
+```{python}
+from sdgym.datasets import load_dataset
+from sdgym.datasets import load_tables
+from sdv.metrics.tabular import BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryLogisticRegression,BinaryMLPClassifier
+from sklearn.metrics import f1_score
+
+metadata = load_dataset('adult')
+tables = load_tables(metadata)
+table_name = metadata.get_tables()[0]
+real_data = tables['adult']#[1:100]
+
+synth_data  = gen_rf(real_data={"adult": real_data}, metadata=metadata)
+
+BinaryDecisionTreeClassifier.compute(real_data, synth_data["adult"], target = "label", scorer=f1_score)
+BinaryAdaBoostClassifier.compute(real_data, synth_data["adult"], target = "label", scorer=f1_score)
+BinaryLogisticRegression.compute(real_data, synth_data["adult"], target = "label", scorer=f1_score)
+BinaryMLPClassifier.compute(real_data, synth_data["adult"], target = "label", scorer=f1_score)
+
+```
+
+# CTGAN
+```{python}
+from sdv.tabular import CTGAN
+
+model = CTGAN()
+model.fit(real_data)
+
+synth_data = model.sample(real_data.shape[0])
+
+BinaryDecisionTreeClassifier.compute(real_data, synth_data, target = "label", scorer=f1_score)
+BinaryAdaBoostClassifier.compute(real_data, synth_data, target = "label", scorer=f1_score)
+BinaryLogisticRegression.compute(real_data, synth_data, target = "label", scorer=f1_score)
+BinaryMLPClassifier.compute(real_data, synth_data, target = "label", scorer=f1_score)
+```
+
+# Identity
+```{python}
+BinaryDecisionTreeClassifier.compute(real_data, real_data, target = "label", scorer=f1_score)
+BinaryAdaBoostClassifier.compute(real_data, real_data, target = "label", scorer=f1_score)
+BinaryLogisticRegression.compute(real_data, real_data, target = "label", scorer=f1_score)
+BinaryMLPClassifier.compute(real_data, real_data, target = "label", scorer=f1_score)
+```
