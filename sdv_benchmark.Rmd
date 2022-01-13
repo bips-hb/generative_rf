@@ -11,10 +11,8 @@ source("generative_ranger.R")
 
 ```{python, include=FALSE}
 import numpy as np
-from sdv.tabular import GaussianCopula
 import sdgym
-from sdgym.synthesizers import Independent
-from sdgym.synthesizers import Identity
+from sdgym.synthesizers import Independent, Identity, CTGAN 
 ```
 
 ```{r, include=FALSE}
@@ -22,18 +20,33 @@ my_generative_ranger <- function(x) {
   x_r <- py_to_r(x)
   
   # Chars and logicals to factors
-  idx <- sapply(x_r, is.character)
-  x_r[idx] <- as.data.frame(lapply(x_r[idx], as.factor))
-  idx <- sapply(x_r, is.logical)
-  x_r[idx] <- as.data.frame(lapply(x_r[idx], as.factor))
+  idx_char <- sapply(x_r, is.character)
+  x_r[idx_char] <- as.data.frame(lapply(x_r[idx_char], as.factor))
+  idx_logical <- sapply(x_r, is.logical)
+  x_r[idx_logical] <- as.data.frame(lapply(x_r[idx_logical], as.factor))
   
   # Run generative RF
   res <- generative_ranger(x_real = x_r, x_synth = NULL, n_new = nrow(x_r),
                            num.trees = 10, min.node.size = 50)
   
   # Convert logicals back
-  if (any(idx)) {
-    res[idx] <- as.data.frame(lapply(res[idx], function(x) {x == "TRUE"}))
+  if (any(idx_logical)) {
+    res[idx_logical] <- as.data.frame(lapply(res[idx_logical], function(x) {x == "TRUE"}))
+  }
+  
+   # Convert chars back
+  if (any(idx_char)) {
+    res[idx_char] <- as.data.frame(lapply(res[idx_char], as.character))
+  }
+  
+  # Round integers
+  check.integer <- function(x) {
+    is.numeric(x) && all(x == as.integer(x))
+  }
+  idx_int <- sapply(py_to_r(x), check.integer)
+  if (any(idx_int)) {
+    res[idx_int] <- as.data.frame(lapply(res[idx_int], round))
+    res[idx_int] <- as.data.frame(lapply(res[idx_int], as.integer))
   }
   
   # Return synthetic data
@@ -48,18 +61,22 @@ def gen_rf(real_data, metadata):
     table_name = metadata.get_tables()[0]
     return {table_name: r.my_generative_ranger(real_data[table_name])}
 
-synthesizers = [gen_rf, Identity] # Identity should return original data as synthetic data
-scores = sdgym.run(synthesizers=synthesizers, datasets=['adult', 'census', 'intrusion', 'news'])
+synthesizers = [Identity, CTGAN, gen_rf] # Identity should return original data as synthetic data
+#scores = sdgym.run(synthesizers=synthesizers, datasets=['adult', 'census', 'intrusion', 'news'])
+scores = sdgym.run(synthesizers=synthesizers, datasets=['adult'])
 ```
 
 # Show results from python
-```{python}
+```{python, eval = FALSE}
 #pd.set_option('display.max_columns', 20) 
 scores
 ```
 # Show results from R
 ```{r}
-py$scores
+library(data.table)
+scores <- data.table(py$scores)
+scores
+#scores[, mean(score), by = synthesizer]
 ```
 
 
