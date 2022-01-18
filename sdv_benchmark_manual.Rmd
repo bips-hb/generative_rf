@@ -7,6 +7,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(reticulate)
 source("generative_ranger.R")
+library(doParallel)
+registerDoParallel()
 ```
 
 ```{python, include=FALSE}
@@ -20,40 +22,8 @@ from sdgym.synthesizers import Identity
 ```{r, include=FALSE}
 my_generative_ranger <- function(x) {
   x_r <- py_to_r(x)
-  
-  # Chars and logicals to factors
-  idx_char <- sapply(x_r, is.character)
-  x_r[idx_char] <- as.data.frame(lapply(x_r[idx_char], as.factor))
-  idx_logical <- sapply(x_r, is.logical)
-  x_r[idx_logical] <- as.data.frame(lapply(x_r[idx_logical], as.factor))
-  
-  # Run generative RF
-  res <- generative_ranger(x_real = x_r, x_synth = NULL, n_new = nrow(x_r),
-                           num.trees = 10, min.node.size = 50)
-  
-  # Convert logicals back
-  if (any(idx_logical)) {
-    res[idx_logical] <- as.data.frame(lapply(res[idx_logical], function(x) {x == "TRUE"}))
-  }
-  
-   # Convert chars back
-  if (any(idx_char)) {
-    res[idx_char] <- as.data.frame(lapply(res[idx_char], as.character))
-  }
-  
-  # Round integers
-  check.integer <- function(x) {
-    is.numeric(x) && all(x == as.integer(x))
-  }
-  idx_int <- sapply(py_to_r(x), check.integer)
-  if (any(idx_int)) {
-    res[idx_int] <- as.data.frame(lapply(res[idx_int], round))
-    res[idx_int] <- as.data.frame(lapply(res[idx_int], as.integer))
-  }
-  
-  # Return synthetic data
-  colnames(res) <- colnames(x_r)
-  res
+  generative_ranger(x_real = x_r, x_synth = NULL, n_new = nrow(x_r),
+                    num.trees = 10, min.node.size = 50)
 }
 ```
 

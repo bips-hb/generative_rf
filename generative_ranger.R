@@ -19,8 +19,21 @@ library(foreach)
 generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
                               dist = "normal", ...) {
   
+  # Convert to data.frame
+  orig_colnames <- colnames(x_real)
   x_real <- data.frame(x_real)
   p <- ncol(x_real) 
+  
+  # Convert chars and logicals to factors
+  idx_char <- sapply(x_real, is.character)
+  if (any(idx_char)) {
+    x_real[, idx_char] <- as.data.frame(lapply(x_real[, idx_char], as.factor))
+  }
+  idx_logical <- sapply(x_real, is.logical)
+  if (any(idx_logical)) {
+    x_real[, idx_logical] <- as.data.frame(lapply(x_real[, idx_logical], as.factor))
+  }
+  
   factor_cols <- sapply(x_real, is.factor)
   factor_col_names <- names(factor_cols)[factor_cols]
   
@@ -144,7 +157,17 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
       }
     }
   }
-  colnames(data_new) <- colnames(x_real)
+  
+  # Convert chars and logicals back
+  if (any(idx_char)) {
+    data_new[, idx_char] <- as.data.frame(lapply(data_new[, idx_char], as.character))
+  }
+  if (any(idx_logical)) {
+    data_new[, idx_logical] <- as.data.frame(lapply(data_new[, idx_logical], function(x) {x == "TRUE"}))
+  }
+  
+  # Use original column names
+  colnames(data_new) <- orig_colnames
   
   # Return synthetic data
   data_new
