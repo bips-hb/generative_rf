@@ -1,5 +1,6 @@
 
 library(ranger)
+library(foreach)
 
 #' Generative Random Forests
 #'
@@ -62,70 +63,88 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   # Fit continuous distribution in all used terminal nodes
   # params dims: [[tree]][[nodeid]][[colname]][distr. parameters]
   if (any(!factor_cols)) {
-    params <- lapply(1:num_trees, function(tree) {
+    params <- foreach(tree=1:num_trees) %dopar% { 
       unique_nodeids <- unique(nodeids[, tree])
-      res <- lapply(unique_nodeids, function(nodeid) {
-        apply(x_real[which(pred[, tree] == nodeid), !factor_cols, drop = FALSE], 2, function(x) {
-          MASS::fitdistr(x, dist)$estimate
+      if (dist == "normal") {
+        # Use faster analytical version for normal distribution
+        res <- lapply(unique_nodeids, function(nodeid) {
+          idx <- which(pred[, tree] == nodeid)
+          sapply(x_real[idx, !factor_cols, drop = FALSE], function(x) {
+            c(mean = mean(x), sd = sd(x)) # Or use MLE (1/n)?
+          })
         })
-      })
+      } else {
+        res <- lapply(unique_nodeids, function(nodeid) {
+          idx <- which(pred[, tree] == nodeid)
+          apply(x_real[idx, !factor_cols, drop = FALSE], 2, function(x) {
+            MASS::fitdistr(x, dist)$estimate
+          })
+        })
+      }
       names(res) <- unique_nodeids
       res
-    })
+    }
   }
   
   # Calculate class probabilities for categorical data in all used terminal nodes
   # class_probs dims: [[tree]][[nodeid]][[colname]][class probs]
   if (any(factor_cols)) {
-    class_probs <- lapply(1:num_trees, function(tree) {
+    class_probs <- foreach(tree=1:num_trees) %dopar% { 
       unique_nodeids <- unique(nodeids[, tree])
       res <- lapply(unique_nodeids, function(nodeid) {
-        lapply(x_real[which(pred[, tree] == nodeid), factor_cols, drop = FALSE], function(x) {
-         table(x)
+        idx <- which(pred[, tree] == nodeid)
+        lapply(x_real[idx, factor_cols, drop = FALSE], function(x) {
+         tabulate(x, nbins = nlevels(x))
         })
       })
       names(res) <- unique_nodeids
       res
-    })
-  }
- 
-  # Sample new data from mixture distribution over trees
-  data_new <- data.frame(matrix(NA, nrow = n_new, ncol = p))
-  for (i in 1:n_new) {
-    # Randomly select tree for each obs. (mixture distribution with equal prob.)
-    tree <- sample(num_trees, 1)
-    
-    # Sample from distribution in terminal node
-    for (j in 1:p) {
-      colname <- names(factor_cols)[j]
-      nodeid <- as.character(nodeids[i, tree])
-      if (factor_cols[j]) {
-        # Factor columns: Multinomial distribution
-        draw <- rmultinom(1, 1, prob = class_probs[[tree]][[nodeid]][[colname]])
-        data_new[i, j] <- rownames(draw)[draw == 1]
-      } else {
-        # Continuous columns: Match estimated distribution parameters with r...() function
-        if (dist == "normal") {
-          data_new[i, j] <- rnorm(1, mean = params[[tree]][[nodeid]]["mean", colname], 
-                                  sd = params[[tree]][[nodeid]]["sd", colname])
-        } else if (dist == "exponential") {
-          data_new[i, j] <- rexp(1, params[[tree]][[nodeid]][colname])
-        } else if (dist == "geometric") {
-          data_new[i, j] <- rgeom(1, params[[tree]][[nodeid]][colname])
-        } else if (dist %in% c("log-normal", "lognormal")) {
-          data_new[i, j] <- rlnorm(1, meanlog = params[[tree]][[nodeid]]["meanlog", colname], 
-                                   sdlog = params[[tree]][[nodeid]]["sdlog", colname])
-        } else if (dist == "Poisson") {
-          data_new[i, j] <- rpois(1, params[[tree]][[nodeid]][colname])
-        } else {
-          stop("Unknown distribution.")
-        }
-      }
     }
   }
   
+  # Randomly select tree for each new obs. (mixture distribution with equal prob.)
+  sampled_trees <- sample(num_trees, n_new, replace = TRUE)
+  sampled_nodes <- sapply(1:n_new, function(i) {
+    as.character(nodeids[i, sampled_trees[i]])
+  })
+ 
+  # Get distributions parameters for each new obs.
+  if (any(!factor_cols)) {
+    obs_params <- sapply(1:n_new, function(i) {
+      params[[sampled_trees[i]]][[sampled_nodes[i]]]
+    }, simplify = "array")
+  }
+  
+  # Sample new data from mixture distribution over trees
+  data_new <- foreach (j = 1:p, .combine = data.frame) %dopar% {
+    colname <- names(factor_cols)[j]
+    
+    if (factor_cols[j]) {
+      # Factor columns: Multinomial distribution
+      draws <- sapply(1:n_new, function(i) {
+        which(rmultinom(n = 1, size = 1, prob = class_probs[[sampled_trees[i]]][[sampled_nodes[i]]][[colname]]) == 1)
+      })
+      factor(levels(x_real[, j])[draws])
+    } else {
+      # Continuous columns: Match estimated distribution parameters with r...() function
+      if (dist == "normal") {
+        rnorm(n = n_new, mean = obs_params["mean", colname, ], 
+              sd = obs_params["sd", colname, ])
+      } else if (dist == "exponential") {
+        rexp(n = n_new, obs_params[colname, ])
+      } else if (dist == "geometric") {
+        rgeom(n = n_new, obs_params[colname, ])
+      } else if (dist %in% c("log-normal", "lognormal")) {
+        rlnorm(n = n_new, meanlog = obs_params["meanlog", colname, ], 
+               sdlog = obs_params["sdlog", colname, ])
+      } else if (dist == "Poisson") {
+        rpois(n = n_new, obs_params[colname, ])
+      } else {
+        stop("Unknown distribution.")
+      }
+    }
+  }
   colnames(data_new) <- colnames(x_real)
-  data_new[, factor_cols] <- lapply(data_new[, factor_cols, drop = FALSE], factor)
   
   # Return synthetic data
   data_new
