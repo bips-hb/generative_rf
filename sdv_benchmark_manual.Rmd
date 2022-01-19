@@ -78,3 +78,43 @@ BinaryAdaBoostClassifier.compute(real_data, real_data, target = "label", scorer=
 BinaryLogisticRegression.compute(real_data, real_data, target = "label", scorer=f1_score)
 BinaryMLPClassifier.compute(real_data, real_data, target = "label", scorer=f1_score)
 ```
+
+# ------------------------------------------
+# Replicate  Xu et al. 2020 benchmark study
+# ------------------------------------------
+# evaluating real data sets, table 5
+# using a train/test split, table 4
+
+# trying to avoid as much copy-paste as possible:
+````{python}
+from sklearn.model_selection import train_test_split
+
+class benchmark:
+    def __init__(self, dataset, test_size, model, metric = f1_score):
+        self.metadata = load_dataset(dataset)
+        self.real_data = load_tables(self.metadata)[dataset][1:200] # comment out subset later
+        self.real_data_train, self.real_data_test = train_test_split(self.real_data, test_size=test_size, random_state=2022)
+        self.model = model
+        self.metric = metric
+        
+    def synth_data(self):
+        self.model.fit(self.real_data_train)
+        return self.model.sample(self.real_data_test.shape[0])
+      
+    def scores(self, list_of_classifiers):
+        syn_dat = self.synth_data()
+        res = {}
+        for item in list_of_classifiers:
+            res[item.__name__]=item.compute(self.real_data_test, syn_dat, target = "label", scorer = self.metric)
+        return res
+   
+example = benchmark(dataset= 'adult', test_size=10/33, model=CTGAN())
+#synthetic_data = ex.synth_data()
+example.scores(list_of_classifiers=[BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier, BinaryLogisticRegression,BinaryMLPClassifier ])
+
+````
+# used data sets & metrics 
+```{python}
+list_of_classifiers = [BinaryDecisionTreeClassifier, BinaryAdaBoostClassifier,BinaryLogisticRegression, BinaryMLPClassifier]
+```
+# to do: list all combinations of data sets/classifiers; integrate generative_rf in class framework
