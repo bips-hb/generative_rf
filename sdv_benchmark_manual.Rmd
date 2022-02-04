@@ -21,7 +21,8 @@ my_generative_ranger <- function(x) {
 
 ```{python}
 def gen_rf(real_data):
-  return r.my_generative_ranger(real_data)
+    grf_syn_dat = generative_ranger(x_real = real_data, n_new = real_data.shape[0])
+    return grf_syn_dat.astype(real_data.dtypes)
 ```
 
 # ------------------------------------------
@@ -119,8 +120,8 @@ BinaryLogisticRegression,BinaryMLPClassifier],metric=[accuracy_score, f1_none], 
 
 ```{python}
 # models for synthetic data generation:
-full_dict_of_syn_models = {"Identity":Identity(), "generative RF": gen_rf, "CTGAN":CTGAN(), "TVAE":TVAE()}
-
+full_dict_of_syn_models = {"Identity":Identity(), "generative RF": gen_rf}#, "CTGAN":CTGAN(), "TVAE":TVAE()}
+full_dict_of_syn_models = {"CTGAN":CTGAN()}
 # CopulaGAN, GaussianCopula,  not working yet, 
 # for  sdgym.synthesizers (CLBN, CopulaGAN, CTGAN, Identity, MedGAN, PrivBN, TableGAN, VEEGAN) adapt .fit() procedure
 
@@ -155,7 +156,7 @@ result_census = census.scores(list_of_classifiers=[BinaryDecisionTreeClassifier,
 
 adult = benchmark(dataset= 'adult', test_size=10/(23+10))
 result_adult = adult.scores(list_of_classifiers=[BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,
-BinaryLogisticRegression,BinaryMLPClassifier],metric=[accuracy_score, f1_none], dict_of_syn_models= full_dict_of_syn_models)
+BinaryLogisticRegression,BinaryMLPClassifier],metric=[accuracy_score, f1_none], dict_of_syn_models= {"Identity":Identity(), "generative RF": gen_rf})
 
 census = benchmark(dataset='census', test_size=100/(200+100))
 result_census = census.scores(list_of_classifiers=[BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryMLPClassifier],metric=[accuracy_score, f1_none], dict_of_syn_models= full_dict_of_syn_models)
@@ -176,3 +177,9 @@ mnist28 = benchmark(dataset='mnist28', test_size=10/(60+10))
 result_mnist12 = mnist28.scores(list_of_classifiers=[BinaryDecisionTreeClassifier,BinaryLogisticRegression,BinaryMLPClassifier],metric=[accuracy_score, f1_micro, f1_macro], dict_of_syn_models= full_dict_of_syn_models)
 
 ````
+
+```{R}
+r_res = py$result_census
+write.csv2(apply(r_res,2,as.character),"/Users/kristinblesch/Desktop/BIPS/BIPS_inhalt/generative_RF/census_result.csv")
+````
+
