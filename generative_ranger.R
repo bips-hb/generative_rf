@@ -66,18 +66,12 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
     tab[tab == 1] <- 0 # Avoid terminal nodes with just one obs
     tab/sum(tab)
   })
-
-  # Sample new observations and get their terminal nodes
-  # nodeids dims: [new obs, tree]
-  nodeids <- apply(probs, 2, function(x) {
-    sample(length(x), n_new, replace = TRUE, prob = x)
-  })
   
   # Fit continuous distribution in all used terminal nodes
   # params dims: [[tree]][[nodeid]][[colname]][distr. parameters]
   if (any(!factor_cols)) {
     params <- foreach(tree=1:num_trees) %dopar% { 
-      unique_nodeids <- unique(nodeids[, tree])
+      unique_nodeids <- which(probs[, tree] > 0)
       if (dist == "normal") {
         # Use faster analytical version for normal distribution
         res <- lapply(unique_nodeids, function(nodeid) {
@@ -103,7 +97,7 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   # class_probs dims: [[tree]][[nodeid]][[colname]][class probs]
   if (any(factor_cols)) {
     class_probs <- foreach(tree=1:num_trees) %dopar% { 
-      unique_nodeids <- unique(nodeids[, tree])
+      unique_nodeids <- which(probs[, tree] > 0)
       res <- lapply(unique_nodeids, function(nodeid) {
         idx <- which(pred[, tree] == nodeid)
         lapply(x_real[idx, factor_cols, drop = FALSE], function(x) {
@@ -114,6 +108,12 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
       res
     }
   }
+  
+  # Sample new observations and get their terminal nodes
+  # nodeids dims: [new obs, tree]
+  nodeids <- apply(probs, 2, function(x) {
+    sample(length(x), n_new, replace = TRUE, prob = x)
+  })
   
   # Randomly select tree for each new obs. (mixture distribution with equal prob.)
   sampled_trees <- sample(num_trees, n_new, replace = TRUE)
