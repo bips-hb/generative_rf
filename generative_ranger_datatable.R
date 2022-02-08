@@ -20,7 +20,7 @@ library(data.table)
 generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
                               dist = "normal", ...) {
   
-  # Convert to data.frame
+  # Convert to data.table
   orig_colnames <- colnames(x_real)
   x_real <- data.frame(x_real)
   p <- ncol(x_real) 
@@ -68,28 +68,24 @@ generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FAL
     tab/sum(tab)
   })
   
-  mean_sd_fun <- function(x) {
-    list(mean = mean(x), sd = sd(x))
-  }
-  
-  # Fit continuous distribution in all used terminal nodes
-  # params dims: [[tree]][[nodeid]][[colname]][distr. parameters]
+  # Fit continuous distribution in all terminal nodes
   if (any(!factor_cols)) {
     params <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
-      dt <- data.table(tree = tree, x_real[, !factor_cols], nodeid = pred[, tree])
+      dt <- data.table(tree = tree, x_real[, !factor_cols, drop = FALSE], nodeid = pred[, tree])
       long <- melt(dt, id.vars = c("tree", "nodeid"))
-      mean_sd <- long[, mean_sd_fun(value), by = .(tree, nodeid, variable)]
-      #probs_dt <- data.table(nodeid = 1:nrow(probs), prob = probs[, tree])
-      #merge(mean_sd, probs_dt, by = "nodeid")
-      mean_sd
+      
+      if (dist == "normal") {
+        long[, list(mean = mean(value), sd = sd(value)), by = .(tree, nodeid, variable)]
+      } else {
+        long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, nodeid, variable)]
+      }
     }
   }
 
-  # Calculate class probabilities for categorical data in all used terminal nodes
-  # class_probs dims: [[tree]][[nodeid]][[colname]][class probs]
+  # Calculate class probabilities for categorical data in all terminal nodes
   if (any(factor_cols)) {
     class_probs <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
-      dt <- data.table(tree = tree, x_real[, factor_cols], nodeid = pred[, tree])
+      dt <- data.table(tree = tree, x_real[, factor_cols, drop = FALSE], nodeid = pred[, tree])
       long <- melt(dt, id.vars = c("tree", "nodeid"), value.factor = TRUE)
       setDT(long)[, .N, by = .(tree, nodeid, variable, value)]
     }
@@ -128,18 +124,17 @@ generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FAL
     } else {
       # Continuous columns: Match estimated distribution parameters with r...() function
       if (dist == "normal") {
-        #browser()
         rnorm(n = n_new, mean = obs_params[variable == colname, mean], 
               sd = obs_params[variable == colname, sd])
       } else if (dist == "exponential") {
-        rexp(n = n_new, obs_params[colname, ]) #FIXME
+        rexp(n = n_new, obs_params[variable == colname, rate])
       } else if (dist == "geometric") {
-        rgeom(n = n_new, obs_params[colname, ]) #FIXME
+        rgeom(n = n_new, obs_params[variable == colname, prob])
       } else if (dist %in% c("log-normal", "lognormal")) {
-        rlnorm(n = n_new, meanlog = obs_params["meanlog", colname, ], 
-               sdlog = obs_params["sdlog", colname, ]) #FIXME
+        rlnorm(n = n_new, meanlog = obs_params[variable == colname, meanlog], 
+               sdlog = obs_params[variable == colname, sdlog])
       } else if (dist == "Poisson") {
-        rpois(n = n_new, obs_params[colname, ]) #FIXME
+        rpois(n = n_new, obs_params[variable == colname, lambda])
       } else {
         stop("Unknown distribution.")
       }
