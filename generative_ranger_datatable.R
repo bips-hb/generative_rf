@@ -20,7 +20,7 @@ library(data.table)
 generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
                               dist = "normal", ...) {
   
-  # Convert to data.table
+  # Convert to data.frame
   orig_colnames <- colnames(x_real)
   x_real <- data.frame(x_real)
   p <- ncol(x_real) 
@@ -28,11 +28,11 @@ generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FAL
   # Convert chars and logicals to factors
   idx_char <- sapply(x_real, is.character)
   if (any(idx_char)) {
-    x_real[, idx_char] <- as.data.frame(lapply(x_real[, idx_char], as.factor))
+    x_real[, idx_char] <- as.data.frame(lapply(x_real[, idx_char, drop = FALSE], as.factor))
   }
   idx_logical <- sapply(x_real, is.logical)
   if (any(idx_logical)) {
-    x_real[, idx_logical] <- as.data.frame(lapply(x_real[, idx_logical], as.factor))
+    x_real[, idx_logical] <- as.data.frame(lapply(x_real[, idx_logical, drop = FALSE], as.factor))
   }
   
   factor_cols <- sapply(x_real, is.factor)
@@ -106,12 +106,12 @@ generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FAL
   
   # Get distributions parameters for each new obs.
   if (any(!factor_cols)) {
-    obs_params <- merge(sampled_trees_nodes, params, by = c("tree", "nodeid"), sort = FALSE)
+    obs_params <- merge(sampled_trees_nodes, params, by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
   }
   
   # Get probabilities for each new obs.
   if (any(factor_cols)) {
-    obs_probs <- merge(sampled_trees_nodes, class_probs, by = c("tree", "nodeid"), sort = FALSE)
+    obs_probs <- merge(sampled_trees_nodes, class_probs, by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
   }
   
   # Sample new data from mixture distribution over trees
@@ -143,10 +143,10 @@ generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FAL
   
   # Convert chars and logicals back
   if (any(idx_char)) {
-    data_new[, idx_char] <- as.data.frame(lapply(data_new[, idx_char], as.character))
+    data_new[, idx_char] <- as.data.frame(lapply(data_new[, idx_char, drop = FALSE], as.character))
   }
   if (any(idx_logical)) {
-    data_new[, idx_logical] <- as.data.frame(lapply(data_new[, idx_logical], function(x) {x == "TRUE"}))
+    data_new[, idx_logical] <- as.data.frame(lapply(data_new[, idx_logical, drop = FALSE], function(x) {x == "TRUE"}))
   }
   
   # Use original column names
