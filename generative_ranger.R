@@ -1,6 +1,7 @@
 
 library(ranger)
 library(foreach)
+library(data.table)
 
 #' Generative Random Forests
 #'
@@ -16,7 +17,7 @@ library(foreach)
 #'
 #' @examples
 #' generative_ranger(x_real = iris, n_new = 100, num.trees = 50)
-generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
+generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
                               dist = "normal", ...) {
   
   # Convert to data.frame
@@ -27,11 +28,11 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   # Convert chars and logicals to factors
   idx_char <- sapply(x_real, is.character)
   if (any(idx_char)) {
-    x_real[, idx_char] <- as.data.frame(lapply(x_real[, idx_char], as.factor))
+    x_real[, idx_char] <- as.data.frame(lapply(x_real[, idx_char, drop = FALSE], as.factor))
   }
   idx_logical <- sapply(x_real, is.logical)
   if (any(idx_logical)) {
-    x_real[, idx_logical] <- as.data.frame(lapply(x_real[, idx_logical], as.factor))
+    x_real[, idx_logical] <- as.data.frame(lapply(x_real[, idx_logical, drop = FALSE], as.factor))
   }
   
   factor_cols <- sapply(x_real, is.factor)
@@ -67,45 +68,26 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
     tab/sum(tab)
   })
   
-  # Fit continuous distribution in all used terminal nodes
-  # params dims: [[tree]][[nodeid]][[colname]][distr. parameters]
+  # Fit continuous distribution in all terminal nodes
   if (any(!factor_cols)) {
-    params <- foreach(tree=1:num_trees) %dopar% { 
-      unique_nodeids <- which(probs[, tree] > 0)
+    params <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
+      dt <- data.table(tree = tree, x_real[, !factor_cols, drop = FALSE], nodeid = pred[, tree])
+      long <- melt(dt, id.vars = c("tree", "nodeid"))
+      
       if (dist == "normal") {
-        # Use faster analytical version for normal distribution
-        res <- lapply(unique_nodeids, function(nodeid) {
-          idx <- which(pred[, tree] == nodeid)
-          sapply(x_real[idx, !factor_cols, drop = FALSE], function(x) {
-            c(mean = mean(x), sd = sd(x)) # Or use MLE (1/n)?
-          })
-        })
+        long[, list(mean = mean(value), sd = sd(value)), by = .(tree, nodeid, variable)]
       } else {
-        res <- lapply(unique_nodeids, function(nodeid) {
-          idx <- which(pred[, tree] == nodeid)
-          apply(x_real[idx, !factor_cols, drop = FALSE], 2, function(x) {
-            MASS::fitdistr(x, dist)$estimate
-          })
-        })
+        long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, nodeid, variable)]
       }
-      names(res) <- unique_nodeids
-      res
     }
   }
-  
-  # Calculate class probabilities for categorical data in all used terminal nodes
-  # class_probs dims: [[tree]][[nodeid]][[colname]][class probs]
+
+  # Calculate class probabilities for categorical data in all terminal nodes
   if (any(factor_cols)) {
-    class_probs <- foreach(tree=1:num_trees) %dopar% { 
-      unique_nodeids <- which(probs[, tree] > 0)
-      res <- lapply(unique_nodeids, function(nodeid) {
-        idx <- which(pred[, tree] == nodeid)
-        lapply(x_real[idx, factor_cols, drop = FALSE], function(x) {
-         tabulate(x, nbins = nlevels(x))
-        })
-      })
-      names(res) <- unique_nodeids
-      res
+    class_probs <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
+      dt <- data.table(tree = tree, x_real[, factor_cols, drop = FALSE], nodeid = pred[, tree])
+      long <- melt(dt, id.vars = c("tree", "nodeid"), value.factor = TRUE)
+      setDT(long)[, .N, by = .(tree, nodeid, variable, value)]
     }
   }
   
@@ -118,14 +100,18 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   # Randomly select tree for each new obs. (mixture distribution with equal prob.)
   sampled_trees <- sample(num_trees, n_new, replace = TRUE)
   sampled_nodes <- sapply(1:n_new, function(i) {
-    as.character(nodeids[i, sampled_trees[i]])
+    nodeids[i, sampled_trees[i]]
   })
- 
+  sampled_trees_nodes <- data.table(obs = 1:n_new, tree = sampled_trees, nodeid = sampled_nodes)
+  
   # Get distributions parameters for each new obs.
   if (any(!factor_cols)) {
-    obs_params <- sapply(1:n_new, function(i) {
-      params[[sampled_trees[i]]][[sampled_nodes[i]]]
-    }, simplify = "array")
+    obs_params <- merge(sampled_trees_nodes, params, by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
+  }
+  
+  # Get probabilities for each new obs.
+  if (any(factor_cols)) {
+    obs_probs <- merge(sampled_trees_nodes, class_probs, by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
   }
   
   # Sample new data from mixture distribution over trees
@@ -134,24 +120,21 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
     
     if (factor_cols[j]) {
       # Factor columns: Multinomial distribution
-      draws <- sapply(1:n_new, function(i) {
-        which(rmultinom(n = 1, size = 1, prob = class_probs[[sampled_trees[i]]][[sampled_nodes[i]]][[colname]]) == 1)
-      })
-      factor(levels(x_real[, j])[draws])
+      obs_probs[variable == colname, sample(value, 1, prob = N), by = obs]$V1
     } else {
       # Continuous columns: Match estimated distribution parameters with r...() function
       if (dist == "normal") {
-        rnorm(n = n_new, mean = obs_params["mean", colname, ], 
-              sd = obs_params["sd", colname, ])
+        rnorm(n = n_new, mean = obs_params[variable == colname, mean], 
+              sd = obs_params[variable == colname, sd])
       } else if (dist == "exponential") {
-        rexp(n = n_new, obs_params[colname, ])
+        rexp(n = n_new, obs_params[variable == colname, rate])
       } else if (dist == "geometric") {
-        rgeom(n = n_new, obs_params[colname, ])
+        rgeom(n = n_new, obs_params[variable == colname, prob])
       } else if (dist %in% c("log-normal", "lognormal")) {
-        rlnorm(n = n_new, meanlog = obs_params["meanlog", colname, ], 
-               sdlog = obs_params["sdlog", colname, ])
+        rlnorm(n = n_new, meanlog = obs_params[variable == colname, meanlog], 
+               sdlog = obs_params[variable == colname, sdlog])
       } else if (dist == "Poisson") {
-        rpois(n = n_new, obs_params[colname, ])
+        rpois(n = n_new, obs_params[variable == colname, lambda])
       } else {
         stop("Unknown distribution.")
       }
@@ -160,10 +143,10 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   
   # Convert chars and logicals back
   if (any(idx_char)) {
-    data_new[, idx_char] <- as.data.frame(lapply(data_new[, idx_char], as.character))
+    data_new[, idx_char] <- as.data.frame(lapply(data_new[, idx_char, drop = FALSE], as.character))
   }
   if (any(idx_logical)) {
-    data_new[, idx_logical] <- as.data.frame(lapply(data_new[, idx_logical], function(x) {x == "TRUE"}))
+    data_new[, idx_logical] <- as.data.frame(lapply(data_new[, idx_logical, drop = FALSE], function(x) {x == "TRUE"}))
   }
   
   # Use original column names
