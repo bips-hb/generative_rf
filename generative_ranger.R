@@ -17,7 +17,7 @@ library(data.table)
 #'
 #' @examples
 #' generative_ranger(x_real = iris, n_new = 100, num.trees = 50)
-generative_ranger_datatable <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
+generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
                               dist = "normal", ...) {
   
   # Convert to data.frame
