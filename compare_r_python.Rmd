@@ -1,0 +1,64 @@
+---
+title: "Generative RF - R/Python comparison"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("simdat.R")
+library(microbenchmark)
+library(doParallel)
+library(genrf)
+library(reticulate)
+```
+
+```{python, include=FALSE}
+import genrf as grf
+```
+
+# Simulate data
+```{r}
+n <- 10000L
+dat <- simdat(n)
+```
+
+# R version
+```{r}
+mod <- genrf$new(dat, num.trees = 10, min.node.size = 5)
+synth <- mod$sample(n)
+```
+
+# Python version
+```{python}
+dat = r.dat.copy()
+mod = grf.genrf(r.dat, oob = False, dist = "normal")
+synth = mod.sample(r.n)
+```
+
+# Show results from R
+```{r}
+str(synth)
+str(py$synth)
+```
+
+# Benchmark
+```{r}
+pygenrf <- import("genrf", convert = FALSE)
+rfun <- function(dat, n) {
+  mod <- genrf$new(dat, num.trees = 10, min.node.size = 5)
+  mod$sample(n)
+}
+pyfun <- function(dat, n) {
+  mod <- pygenrf$genrf(dat, oob = FALSE, dist = "normal")
+  mod$sample(n)
+}
+
+
+microbenchmark(R = rfun(dat, n),
+               Py = pyfun(dat, n),
+               times = 1)
+
+
+```
+
+
