@@ -23,11 +23,15 @@ genrf <- R6::R6Class(
       # Convert chars and logicals to factors
       private$idx_char <- sapply(x_real, is.character)
       if (any(private$idx_char)) {
-        x_real[, private$idx_char] <- as.data.frame(lapply(x_real[, private$idx_char, drop = FALSE], as.factor))
+        x_real[, private$idx_char] <- as.data.frame(
+          lapply(x_real[, private$idx_char, drop = FALSE], as.factor)
+        )
       }
       private$idx_logical <- sapply(x_real, is.logical)
       if (any(private$idx_logical)) {
-        x_real[, private$idx_logical] <- as.data.frame(lapply(x_real[, private$idx_logical, drop = FALSE], as.factor))
+        x_real[, private$idx_logical] <- as.data.frame(
+          lapply(x_real[, private$idx_logical, drop = FALSE], as.factor)
+        )
       }
       private$factor_cols <- sapply(x_real, is.factor)
 
@@ -68,6 +72,10 @@ genrf <- R6::R6Class(
 
           if (dist == "normal") {
             long[, list(mean = mean(value), sd = sd(value)), by = .(tree, nodeid, variable)]
+          } else if (dist == "beta") {
+            long[, list(mu = mean(value), s2 = var(value)), by = .(tree, nodeid, variable)]
+            long[, alpha := ((1 - mu) / s2 - 1 / mu) * mu^2]
+            long[, beta := alpha * (1 / mu - 1)]
           } else {
             long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, nodeid, variable)]
           }
@@ -120,6 +128,9 @@ genrf <- R6::R6Class(
           if (private$dist == "normal") {
             rnorm(n = n, mean = obs_params[variable == colname, mean],
                   sd = obs_params[variable == colname, sd])
+          } else if (private$dist == "beta") {
+            rbeta(n = n, shape1 = obs_params[variable == colname, alpha], 
+                  shape2 = obs_params[variable == colname, beta])
           } else if (private$dist == "exponential") {
             rexp(n = n, obs_params[variable == colname, rate])
           } else if (private$dist == "geometric") {
