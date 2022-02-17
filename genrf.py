@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-#from sklearn.ensemble._forest import _generate_unsampled_indices
+from sklearn.ensemble._forest import _generate_unsampled_indices
 
 class genrf:
   """Generative RF"""
@@ -34,7 +34,7 @@ class genrf:
     y = np.concatenate([np.zeros(x_real.shape[0]), np.ones(x_real.shape[0])])
     
     # Fit RF to both data
-    clf = RandomForestClassifier(n_estimators = 10, oob_score = False) 
+    clf = RandomForestClassifier(n_estimators = 10) 
     clf.fit(x, y)
     
     # Get terminal nodes for all observations
@@ -44,16 +44,15 @@ class genrf:
     
     # If OOB, use only OOB trees
     if oob:
-      raise ValueError('OOB handling not yet implemented.')
-      exit()
-    # Do that for each tree:
-    #_generate_unsampled_indices(clf.estimators_[1].random_state, len(dat.index), len(dat.index))
+      for tree in range(self.num_trees):
+        idx_oob = np.isin(range(x_real.shape[0]), _generate_unsampled_indices(clf.estimators_[tree].random_state, x.shape[0], x.shape[0]))
+        pred[np.invert(idx_oob), tree] = -1
     
     # Get probabilities of terminal nodes for each tree 
     # node_probs dims: [nodeid, tree]
     nbins = np.max(pred)
     def my_bincount(x): 
-      res = np.bincount(x, minlength=nbins+1)
+      res = np.bincount(x[x >= 0], minlength=nbins+1)
       res[res == 1] = 0 # Avoid terminal nodes with just one obs
       return res/np.sum(res)
     self.node_probs = np.apply_along_axis(my_bincount, 0, pred)
@@ -65,7 +64,7 @@ class genrf:
         dt = x_real.loc[:, np.invert(self.factor_cols)].copy()
         dt["tree"] = tree
         dt["nodeid"] = pred[:,tree]
-        long = pd.melt(dt, id_vars = ["tree", "nodeid"])
+        long = pd.melt(dt[dt["nodeid"] >= 0], id_vars = ["tree", "nodeid"])
         if self.dist == "normal":
           res = long.groupby(["tree", "nodeid", "variable"], as_index = False).agg(mean=("value", "mean"), sd=("value", "std"))
         else:
@@ -80,7 +79,7 @@ class genrf:
         dt = x_real.loc[:, self.factor_cols].copy()
         dt["tree"] = tree
         dt["nodeid"] = pred[:,tree]
-        long = pd.melt(dt, id_vars = ["tree", "nodeid"])
+        long = pd.melt(dt[dt["nodeid"] >= 0], id_vars = ["tree", "nodeid"])
         res = long.value_counts(sort = False).rename('freq').reset_index()
         self.class_probs = self.class_probs.append(res)
   
