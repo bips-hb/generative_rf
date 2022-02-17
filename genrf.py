@@ -6,7 +6,7 @@ from sklearn.ensemble._forest import _generate_unsampled_indices
 
 class genrf:
   """Generative RF"""
-  def __init__(self, x, oob, dist):
+  def __init__(self, x, oob, dist, **kwargs):
     x_real = x.copy()
     self.p = x_real.shape[1]
     self.orig_colnames = list(x_real)
@@ -34,7 +34,7 @@ class genrf:
     y = np.concatenate([np.zeros(x_real.shape[0]), np.ones(x_real.shape[0])])
     
     # Fit RF to both data
-    clf = RandomForestClassifier(n_estimators = 10) 
+    clf = RandomForestClassifier(**kwargs) 
     clf.fit(x, y)
     
     # Get terminal nodes for all observations
