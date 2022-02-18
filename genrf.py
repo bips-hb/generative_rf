@@ -106,16 +106,13 @@ class genrf:
       obs_probs = pd.merge(sampled_trees_nodes, self.class_probs, on = ["tree", "nodeid"])
     
     # Sample new data from mixture distribution over trees
-    data_new = df = pd.DataFrame(index=range(n), columns=range(self.p))
+    data_new = pd.DataFrame(index=range(n), columns=range(self.p))
     for j in range(self.p): 
       colname = self.orig_colnames[j]
       
       if self.factor_cols[j]:
         # Factor columns: Multinomial distribution
-        def myfun2(value,freq):
-          return np.random.choice(a = value, p = freq/np.sum(freq), size = 1, replace = False)
-        
-        data_new.loc[:, j] = obs_probs.groupby("obs").apply(lambda xx: myfun2(xx["value"], xx["freq"])).astype(int)
+        data_new.loc[:, j] = obs_probs[obs_probs["variable"] == colname].sample(frac = 1.0).groupby("obs").head(1).sort_values(by=['obs'], ignore_index = True)["value"]
         
       else:
         # Continuous columns: Match estimated distribution parameters with r...() function
