@@ -99,11 +99,11 @@ class genrf:
     
     # Get distributions parameters for each new obs.
     if np.invert(self.factor_cols).any():
-      obs_params = pd.merge(sampled_trees_nodes, self.params, on = ["tree", "nodeid"])
+      obs_params = pd.merge(sampled_trees_nodes, self.params, on = ["tree", "nodeid"]).sort_values(by=['obs'], ignore_index = True)
     
     # Get probabilities for each new obs.
     if self.factor_cols.any():
-      obs_probs = pd.merge(sampled_trees_nodes, self.class_probs, on = ["tree", "nodeid"])
+      obs_probs = pd.merge(sampled_trees_nodes, self.class_probs, on = ["tree", "nodeid"]).sort_values(by=['obs'], ignore_index = True)
     
     # Sample new data from mixture distribution over trees
     data_new = pd.DataFrame(index=range(n), columns=range(self.p))
@@ -112,8 +112,8 @@ class genrf:
       
       if self.factor_cols[j]:
         # Factor columns: Multinomial distribution
-        data_new.loc[:, j] = obs_probs[obs_probs["variable"] == colname].sample(frac = 1.0).groupby("obs").head(1).sort_values(by=['obs'], ignore_index = True)["value"]
-        
+        data_new.loc[:, j] = obs_probs[obs_probs["variable"] == colname].groupby("obs").sample(weights = "freq")["value"].reset_index(drop = True)
+
       else:
         # Continuous columns: Match estimated distribution parameters with r...() function
         if self.dist == "normal":
