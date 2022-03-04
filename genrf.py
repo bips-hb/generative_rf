@@ -6,7 +6,7 @@ from sklearn.ensemble._forest import _generate_unsampled_indices
 
 class genrf:
   """Generative RF"""
-  def __init__(self, x, oob, dist, **kwargs):
+  def __init__(self, x, oob = False, dist = "normal", **kwargs):
     x_real = x.copy()
     self.p = x_real.shape[1]
     self.orig_colnames = list(x_real)
