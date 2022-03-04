@@ -12,6 +12,12 @@ class genrf:
     self.orig_colnames = list(x_real)
     self.dist = dist
     
+    # Find object columns and convert to category
+    self.object_cols = x_real.dtypes == "object"
+    for col in list(x_real):
+      if self.object_cols[col]:
+        x_real[col] = x_real[col].astype('category')
+    
     # Find factor columns
     self.factor_cols = x_real.dtypes == "category"
     
@@ -128,6 +134,11 @@ class genrf:
     for col in self.orig_colnames:
       if self.factor_cols[col]:
         data_new[col] = data_new[col].astype("category").cat.rename_categories(self.levels[col])
+
+    # Convert object columns back to object
+    for col in self.orig_colnames:
+      if self.object_cols[col]:
+        data_new[col] = data_new[col].astype("object")
 
     # Return newly sampled data
     return data_new
