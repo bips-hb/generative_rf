@@ -76,7 +76,7 @@ class genrf:
         else:
           raise ValueError('Other distributions not yet implemented')
           exit()
-        self.params = self.params.append(res)
+        self.params = pd.concat([self.params, res])
     
     # Calculate class probabilities for categorical data in all terminal nodes 
     self.class_probs = pd.DataFrame()
@@ -87,7 +87,7 @@ class genrf:
         dt["nodeid"] = pred[:,tree]
         long = pd.melt(dt[dt["nodeid"] >= 0], id_vars = ["tree", "nodeid"])
         res = long.value_counts(sort = False).rename('freq').reset_index()
-        self.class_probs = self.class_probs.append(res)
+        self.class_probs = pd.concat([self.class_probs, res])
   
   def sample(self, n):
     # Sample new observations and get their terminal nodes
