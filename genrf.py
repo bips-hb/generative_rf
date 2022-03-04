@@ -133,7 +133,7 @@ class genrf:
     # Convert categories back to category   
     for col in self.orig_colnames:
       if self.factor_cols[col]:
-        data_new[col] = data_new[col].astype("category").cat.rename_categories(self.levels[col])
+        data_new[col] = pd.Categorical.from_codes(data_new[col], categories = self.levels[col])
 
     # Convert object columns back to object
     for col in self.orig_colnames:
