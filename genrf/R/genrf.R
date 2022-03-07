@@ -122,14 +122,14 @@ genrf <- R6::R6Class(
 
         if (private$factor_cols[j]) {
           # Factor columns: Multinomial distribution
-          obs_probs[variable == colname, sample(value, 1, prob = N), by = obs]$V1
+          obs_probs[variable == colname, droplevels(sample(value, 1, prob = N)), by = obs]$V1
         } else {
           # Continuous columns: Match estimated distribution parameters with r...() function
           if (private$dist == "normal") {
             rnorm(n = n, mean = obs_params[variable == colname, mean],
                   sd = obs_params[variable == colname, sd])
           } else if (private$dist == "beta") {
-            rbeta(n = n, shape1 = obs_params[variable == colname, alpha], 
+            rbeta(n = n, shape1 = obs_params[variable == colname, alpha],
                   shape2 = obs_params[variable == colname, beta])
           } else if (private$dist == "exponential") {
             rexp(n = n, obs_params[variable == colname, rate])
