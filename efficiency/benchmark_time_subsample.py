@@ -1,18 +1,4 @@
 import time
-
-start = time.perf_counter()
-def func():
-   return([i for i in range(100000)])
-func()
-
-
-wall_time_start, process_time_start = time.perf_counter(), time.process_time()
-func()
-wall_time_end, process_time_end = time.perf_counter(), time.process_time()
-print(f"Walltime delta {wall_time_end - wall_time_start} seconds \n Process time delta {process_time_end - process_time_start} seconds")
-
-
-
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -22,6 +8,7 @@ from sdv.tabular import CTGAN, CopulaGAN, GaussianCopula, TVAE
 from sdv.metrics.tabular import BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryLogisticRegression,BinaryMLPClassifier
 from sklearn.metrics import f1_score, accuracy_score
 import rpy2.robjects as robjects
+import rpy2.robjects.packages as rpackages
 from rpy2.robjects import pandas2ri
 
 
@@ -32,7 +19,6 @@ from rpy2.robjects import pandas2ri
 r = robjects.r
 r.source('generative_ranger.R')
 generative_ranger = robjects.globalenv['generative_ranger']
-import rpy2.robjects.packages as rpackages
 doPar = rpackages.importr('doParallel')
 doPar.registerDoParallel(20)
 pandas2ri.activate()
