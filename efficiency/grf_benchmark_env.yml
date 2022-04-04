@@ -13,8 +13,6 @@ dependencies:
   - anyio=2.2.0
   - appdirs=1.4.4
   - applaunchservices=0.2.1
-  - appnope=0.1.2
-  - appscript=1.1.2
   - argh=0.26.2
   - argon2-cffi=20.1.0
   - asn1crypto=1.4.0
@@ -136,7 +134,6 @@ dependencies:
   - libedit=3.1.20210216
   - libev=4.33
   - libffi=3.3
-  - libgfortran=3.0.1
   - libiconv=1.16
   - liblief=0.10.1
   - libllvm10=10.0.1
@@ -240,7 +237,6 @@ dependencies:
   - python-jsonrpc-server=0.4.0
   - python-language-server=0.36.2
   - python-libarchive-c=2.9
-  - python.app=3
   - python_abi=3.8
   - pytz=2021.1
   - pywavelets=1.1.1
@@ -318,7 +314,6 @@ dependencies:
   - wurlitzer=2.1.0
   - xlrd=2.0.1
   - xlsxwriter=1.3.8
-  - xlwings=0.23.0
   - xlwt=1.3.0
   - xmltodict=0.12.0
   - xz=5.2.5
