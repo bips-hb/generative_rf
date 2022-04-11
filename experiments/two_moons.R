@@ -1,23 +1,33 @@
 
 library(ggplot2)
+library(ggsci)
+library(data.table)
 library(ranger)
 library(fdm2id)
 library(genrf)
 
-n <- 1000
-x <- data.twomoons(n = n, graph = FALSE)
+n <- c(100, 1000)
 
-mod <- genrf$new(x, num.trees = 10, min.node.size = 5, mtry = 2)
-synth <- mod$sample(n)
-
-df <- rbind(data.frame(Data = "Original", x), 
-            data.frame(Data = "Synthetic", synth))
+sim_fun <- function(n) {
+  x <- data.twomoons(n = n, graph = FALSE)
+  
+  mod <- genrf$new(x, num.trees = 10, min.node.size = 5, mtry = 2)
+  synth <- mod$sample(n)
+  
+  df <- rbind(data.frame(Data = "Original", x), 
+              data.frame(Data = "Synthetic", synth))
+  df$n <- paste0("n = ", n)
+  df
+}
+df <- rbindlist(lapply(n, sim_fun))
 
 # Scatter plot
 ggplot(df, aes(x = X, y = Y, col = Data, shape = Class)) + 
+  facet_wrap(~ n) + 
   geom_point() + 
-  theme_bw()
-ggsave(paste0("twomoons", ".pdf"))
+  theme_bw() + 
+  scale_color_npg()
+ggsave(paste0("twomoons", ".pdf"), width = 8.5, height = 5)
 
 # # Plot pairs
 # library(GGally)

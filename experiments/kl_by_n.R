@@ -85,18 +85,22 @@ res[, KL := result.1]
 # Save result
 saveRDS(res, paste0(reg_name, ".Rds"))
 
+# Load results
+res <- readRDS(paste0(reg_name, ".Rds"))
+
 # Plot KL by n ------------------------------------------------------------
 res_mean <- res[, mean(KL), by = .(n, p, cov_base, num.trees, min.node.size, oob)]
 res_mean[, KL := V1]
-res_mean[, p := as.factor(p)]
+res_mean[, Dimensionality := as.factor(p)]
 
-ggplot(res_mean, aes(x = n, y = KL, col = p, shape = p)) + 
+ggplot(res_mean, aes(x = n, y = KL, col = Dimensionality, shape = Dimensionality)) + 
   geom_line() + geom_point() + 
   geom_hline(yintercept = 0) + 
   theme_bw() + 
+  xlab("Sample size") + 
   ylab("KL divergence") + 
-  #scale_x_continuous(trans='log10') + 
+  scale_x_continuous(trans='log10') + 
   scale_color_npg()
 
-ggsave(paste0(reg_name, ".pdf"))
+ggsave(paste0(reg_name, ".pdf"), width = 8, height = 5)
 

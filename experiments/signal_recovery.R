@@ -4,6 +4,7 @@ library(ggplot2)
 library(GGally)
 library(ranger)
 library(genrf)
+library(xtable)
 
 # Simulation params
 repl <- 10
@@ -27,4 +28,16 @@ res_mean <- apply(res, 1:2, mean)
 
 # Lower triangular matrix: Ground truth correlations
 # Upper triangular matrix: Recovered correlations
-round(res_mean * upper.tri(res_mean) + sigma * lower.tri(sigma), 2)
+tab <- round(res_mean * upper.tri(res_mean) + sigma * lower.tri(sigma), 2)
+diag(tab) <- NA
+print(xtable(tab), booktabs = TRUE)
+
+# Both ground truth and recovered correlations in lower triangular matrix
+tab1 <- sprintf("\\textcolor{ForestGreen}{%.2f}", sigma)
+tab2 <- sprintf("\\textcolor{MidnightBlue}{%.2f}", res_mean)
+tab <- matrix(paste(tab1, tab2, sep = "/"), 
+              nrow = nrow(sigma), ncol = ncol(sigma))
+tab[upper.tri(tab)] <- ""
+diag(tab) <- ""
+print(xtable(tab), booktabs = TRUE, sanitize.text.function = identity)
+
