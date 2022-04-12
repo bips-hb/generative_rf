@@ -53,7 +53,8 @@ def scores(data_train, data_test, list_of_classifiers, metric, synthesizer):
         scores = item.compute(real_data = data_test, synthetic_data = syn_data, target = "label", scorer = metric)
         new_metric = pd.DataFrame()
         for i in range(len(metric)): new_metric = pd.concat([new_metric, pd.DataFrame({metric[i].__name__ : [scores[i]] })], axis=1)
-        res = res.append(pd.concat([pd.DataFrame({'model': list(synthesizer.keys())[0],'classifier': [item.__name__] , 'wall_time':wall_time, 'process_time':process_time}), new_metric], axis = 1))
+        res = res.append(pd.concat([pd.DataFrame({'dataset': data_train.name, 'model': list(synthesizer.keys())[0],'classifier': [item.__name__] , 
+        'wall_time':wall_time, 'process_time':process_time}), new_metric], axis = 1))
     syn_dat_res = syn_dat_res.append(res)
     return syn_dat_res
 
@@ -65,6 +66,7 @@ def scores(data_train, data_test, list_of_classifiers, metric, synthesizer):
 # adult 
 adult = load_tables(load_dataset('adult'))['adult']
 adult_train, adult_test = train_test_split(adult, test_size=10/(23+10), stratify=adult['label'], random_state=2022)
+adult_train.name = 'adult'
 adult_classifiers = [BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryLogisticRegression,BinaryMLPClassifier]
 adult_metrics = [f1_none, accuracy_score]
 
@@ -72,41 +74,48 @@ adult_metrics = [f1_none, accuracy_score]
 census = load_tables(load_dataset('census'))['census']
 census = census.dropna(axis=0, how='any', thresh=None, subset=None, inplace=False) 
 census_train, census_test = train_test_split(census, test_size=100/(100+200), stratify=census['label'], random_state=2022)
+census_train.name = 'census'
 census_classifiers = [BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryMLPClassifier]
 census_metrics = [f1_none, accuracy_score]
 
 # covtype
 covtype = load_tables(load_dataset('covtype'))['covtype']
 covtype_train, covtype_test = train_test_split(covtype, test_size=100/(481+100), stratify=covtype['label'], random_state=2022)
+covtype_train.name = 'covtype'
 covtype_classifiers = [BinaryDecisionTreeClassifier,BinaryMLPClassifier]
 covtype_metrics = [accuracy_score, f1_micro, f1_macro]
 
 # credit
 credit = load_tables(load_dataset('credit'))['credit']
 credit_train, credit_test = train_test_split(credit, test_size=20/(264+20), stratify=credit['label'], random_state=2022)
+credit_train.name = 'credit'
 credit_classifiers = [BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryMLPClassifier]
 credit_metrics = [f1_none, accuracy_score]
 
 # intrusion
 intrusion = load_tables(load_dataset('intrusion'))['intrusion']
-intrustion_train, intrusion_test = train_test_split(intrusion, test_size=100/(394+100), stratify=intrusion['label'], random_state=2022)
-intrustion_classifiers = [BinaryDecisionTreeClassifier,BinaryMLPClassifier]
+intrusion_train, intrusion_test = train_test_split(intrusion, test_size=100/(394+100), stratify=intrusion['label'], random_state=2022)
+intrusion_train.name = 'intrusion'
+intrusion_classifiers = [BinaryDecisionTreeClassifier,BinaryMLPClassifier]
 intrusion_metrics = [accuracy_score, f1_micro, f1_macro] 
 
 # mnist12
 mnist12 = load_tables(load_dataset('mnist12'))['mnist12']
 mnist12_train, mnist12_test = train_test_split(mnist12, test_size=10/(60+10), stratify=mnist12['label'], random_state=2022)
+mnist12_train.name = 'mnist12'
 mnist12_classifiers = [BinaryDecisionTreeClassifier,BinaryLogisticRegression,BinaryMLPClassifier]
 mnist12_metrics = [accuracy_score, f1_micro, f1_macro]
 
 # mnist28
 mnist28 = load_tables(load_dataset('mnist28'))['mnist28']
 mnist28_train, mnist28_test = train_test_split(mnist28, test_size=10/(60+10), stratify=mnist28['label'], random_state=2022)
+mnist28_train.name = 'mnist28'
 mnist28_classifiers = [BinaryDecisionTreeClassifier,BinaryLogisticRegression,BinaryMLPClassifier]
 mnist28_metrics = [accuracy_score, f1_micro, f1_macro]
 
 # news
 news = load_tables(load_dataset('news'))['news']
 news_train, news_test = train_test_split(news, test_size=8/(31+8), random_state=2022)
+news_train.name = 'news'
 news_classifiers = [MLPRegressor, LinearRegression]
 news_metrics = [r2_score]
