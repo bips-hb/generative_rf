@@ -13,26 +13,26 @@ np.random.seed(2022)
 torch.manual_seed(2022)
 adult_res = scores(data_train = adult_train, data_test = adult_test, list_of_classifiers = adult_classifiers, 
 metric = adult_metrics, synthesizer = {"CTGAN": CTGAN()})
-adult_res.to_csv("CTGAN_adult_rep.csv")
+adult_res.to_csv("CTGAN_adult.csv")
 
 # census
 np.random.seed(2022)
 torch.manual_seed(2022)
 census_res = scores(data_train = census_train, data_test = census_test, list_of_classifiers = census_classifiers,
 metric = adult_metrics, synthesizer = {"CTGAN": CTGAN()})
-census_res.to_csv("CTGAN_census_rep.csv")
+census_res.to_csv("CTGAN_census.csv")
 # covtype
 np.random.seed(2022)
 torch.manual_seed(2022)
 covtype_res = scores(data_train = covtype_train, data_test = covtype_test, list_of_classifiers = covtype_classifiers,
 metric = covtype_metrics, synthesizer = {"CTGAN": CTGAN()})
-covtype_res.to_csv("CTGAN_covtype_rep.csv")
+covtype_res.to_csv("CTGAN_covtype.csv")
 # credit
 np.random.seed(2022)
 torch.manual_seed(2022)
 credit_res = scores(data_train = credit_train, data_test = credit_test, list_of_classifiers = credit_classifiers,
 metric = credit_metrics, synthesizer = {"CTGAN": CTGAN()})
-credit_res.to_csv("CTGAN_credit_rep.csv")
+credit_res.to_csv("CTGAN_credit.csv")
 # intrusion
 np.random.seed(2022)
 torch.manual_seed(2022)
