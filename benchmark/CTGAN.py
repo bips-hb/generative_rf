@@ -48,7 +48,7 @@ mnist12_res.to_csv("CTGAN_mnist12.csv")
 # mnist28
 np.random.seed(2022)
 torch.manual_seed(2022)
-mnist12_res = scores(data_train = mnist28_train, data_test = mnist28_test, list_of_classifiers = mnist28_classifiers,
+mnist28_res = scores(data_train = mnist28_train, data_test = mnist28_test, list_of_classifiers = mnist28_classifiers,
 metric = mnist28_metrics, synthesizer = {"CTGAN": CTGAN()})
 mnist28_res.to_csv("CTGAN_mnist28.csv")
 # news 
