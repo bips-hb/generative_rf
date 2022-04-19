@@ -58,7 +58,7 @@ adult_res.to_csv("grf_rpy2_adult.csv")
 # census
 np.random.seed(2022)
 census_res = scores(data_train = census_train, data_test = census_test, list_of_classifiers = census_classifiers,
-metric = adult_metrics, synthesizer = {"grf_rpy2": gen_rf})
+metric = census_metrics, synthesizer = {"grf_rpy2": gen_rf})
 census_res.to_csv("grf_rpy2_census.csv")
 # covtype
 np.random.seed(2022)

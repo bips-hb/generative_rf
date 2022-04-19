@@ -66,7 +66,7 @@ def scores(data_train, data_test, list_of_classifiers, metric, synthesizer):
 # adult 
 adult = load_tables(load_dataset('adult'))['adult']
 adult_train, adult_test = train_test_split(adult, test_size=10/(23+10), stratify=adult['label'], random_state=2022)
-adult_train.name = 'adult'
+adult_train.name = 'adult' # keep information on which dataset is used
 adult_classifiers = [BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryLogisticRegression,BinaryMLPClassifier]
 adult_metrics = [f1_none, accuracy_score]
 
@@ -77,6 +77,15 @@ census_train, census_test = train_test_split(census, test_size=100/(100+200), st
 census_train.name = 'census'
 census_classifiers = [BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryMLPClassifier]
 census_metrics = [f1_none, accuracy_score]
+
+# census -- subsamples for time benchmark
+
+subs = [250,500,1000,2000,5000,7500, 10000, 25000, 50000,100000,150000,200000,250000,298006]*2
+census_train_sub, census_test_sub = zip(*[train_test_split(census,
+ train_size=round(200/(100+200)*i),test_size=round(100/(100+200)*i), stratify=census['label'], random_state=2022) for i in subs])
+
+for i in range(len(subs)):
+  census_train_sub[i].name = subs[i]
 
 # covtype
 covtype = load_tables(load_dataset('covtype'))['covtype']

@@ -19,7 +19,7 @@ adult_res.to_csv("TVAE_adult.csv")
 np.random.seed(2022)
 torch.manual_seed(2022)
 census_res = scores(data_train = census_train, data_test = census_test, list_of_classifiers = census_classifiers,
-metric = adult_metrics, synthesizer = {"TVAE": TVAE()})
+metric = census_metrics, synthesizer = {"TVAE": TVAE()})
 census_res.to_csv("TVAE_census.csv")
 # covtype
 np.random.seed(2022)
