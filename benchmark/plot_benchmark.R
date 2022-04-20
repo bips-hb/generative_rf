@@ -1,14 +1,14 @@
 library(dplyr)
 library(ggplot2)
 library(reshape2)
-files <- c(list.files(path = "/Users/kristinblesch/Desktop/BIPS/BIPS_inhalt/generative_RF/generative_rf/benchmark/reproducibility",
+files <- c(list.files(path = "/Users/kristinblesch/Downloads/sub_res",
                          pattern = ".*\\.csv$",
                          all.files = FALSE, full.names = TRUE, recursive = FALSE, ignore.case = TRUE,
                          include.dirs = FALSE, no.. = FALSE))
 df <- data.frame()
 for (i in 1:length(files)) {
   df <- bind_rows(df, read.csv(files[i]))
-}
+} 
 
 helper_fun <- function(f1_char, first = T){
   list_f1 = gsub('[', "",f1_char , fixed = T) %>% gsub(']', "", ., fixed = T) %>% 
@@ -35,3 +35,6 @@ plot_time <- ggplot(data = melted_df_time)+
   facet_grid(rows = vars(time), cols = vars(dataset))+
   geom_point(aes(x = model, y = value, col = model))
 plot_time
+
+re1 <- read.csv("/Users/kristinblesch/Desktop/BIPS/BIPS_inhalt/generative_RF/generative_rf/benchmark/reproducibility_2/TVAE_covtype.csv")
+re2 <- read.csv("/Users/kristinblesch/Desktop/BIPS/BIPS_inhalt/generative_RF/generative_rf/benchmark/reproducibility/TVAE_covtype.csv")
