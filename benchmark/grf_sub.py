@@ -16,6 +16,8 @@ import rpy2.robjects as robjects
 import rpy2.robjects.packages as rpackages
 from rpy2.robjects import pandas2ri
 
+base = rpackages.importr('base')
+
 r = robjects.r
 r.source('../generative_ranger.R')
 r.source('/home/blesch/generative_RF/generative_rf/generative_ranger.R')
@@ -48,7 +50,7 @@ def synth_data(data_train, synthesizer):
         return synthesizer.sample(data_train.shape[0])  
 
 # doParallel
-
+base.set_seed(2022,kind = "L'Ecuyer-CMRG")
 census_res = [scores(data_train = census_train_sub[i], data_test = census_test_sub[i], list_of_classifiers = census_classifiers,
 metric = census_metrics, synthesizer = {"gen_rf": gen_rf}) for i in range(len(subs))]
 

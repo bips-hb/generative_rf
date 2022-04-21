@@ -80,7 +80,7 @@ census_metrics = [f1_none, accuracy_score]
 
 # census -- subsamples for time benchmark
 
-subs = [250,500,1000,2000,5000,7500, 10000, 25000, 50000,100000,200000,298006]*2
+subs = [250,500,1000,2000,5000,7500, 10000, 25000, 50000,100000,200000,298006]*5
 census_train_sub, census_test_sub = zip(*[train_test_split(census,
  train_size=round(200/(100+200)*i),test_size=round(100/(100+200)*i), stratify=census['label'], random_state=2022) for i in subs])
 

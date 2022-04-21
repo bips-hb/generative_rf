@@ -11,10 +11,8 @@ import torch
 # adult
 np.random.seed(2022)
 torch.manual_seed(2022)
-# hier eine Schleife 
 adult_res = scores(data_train = adult_train, data_test = adult_test, list_of_classifiers = adult_classifiers, 
 metric = adult_metrics, synthesizer = {"CTGAN": CTGAN()})
-# hier ende der Schleife 
 adult_res.to_csv("CTGAN_adult.csv")
 
 # census
