@@ -54,7 +54,6 @@ def synth_data(data_train, synthesizer):
         return synthesizer.sample(data_train.shape[0])  
 
 
-# register doParallel
 
 # adult
 np.random.seed(2022)
