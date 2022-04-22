@@ -1,5 +1,0 @@
-,dataset,model,classifier,wall_time,process_time,f1_none,accuracy_score
-0,adult,grf_rpy2,BinaryDecisionTreeClassifier,66.727557833,88.51067,[0.64852991 0.84944991],0.7891963109354414
-0,adult,grf_rpy2,BinaryAdaBoostClassifier,66.727557833,88.51067,[0.64666667 0.90446762],0.8495996756866322
-0,adult,grf_rpy2,BinaryLogisticRegression,66.727557833,88.51067,[0.66790227 0.85716356],0.8002432350258437
-0,adult,grf_rpy2,BinaryMLPClassifier,66.727557833,88.51067,[0.62700568 0.90365364],0.8468632816458903

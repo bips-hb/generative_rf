@@ -1,4 +1,0 @@
-,dataset,model,classifier,wall_time,process_time,f1_none,accuracy_score
-0,census,grf_rpy2,BinaryDecisionTreeClassifier,1199.797108875,1117.428121,[0.34489166 0.88285519],0.8012503020053153
-0,census,grf_rpy2,BinaryAdaBoostClassifier,1199.797108875,1117.428121,[0.10552072 0.96955755],0.941119030361601
-0,census,grf_rpy2,BinaryMLPClassifier,1199.797108875,1117.428121,[0.2386809  0.97054995],0.9432934686317146
