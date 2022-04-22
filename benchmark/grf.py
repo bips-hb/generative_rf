@@ -87,12 +87,12 @@ metric = credit_metrics, synthesizer = {"gen_rf": gen_rf})
 credit_res.to_csv("grf_credit.csv")
 
 # intrusion
-np.random.seed(2022)
-torch.manual_seed(2022)
-base.set_seed(2022,kind = "L'Ecuyer-CMRG")
-intrusion_res = scores(data_train = intrusion_train, data_test = intrusion_test, list_of_classifiers = intrusion_classifiers,
-metric = intrusion_metrics, synthesizer = {"gen_rf": gen_rf})
-intrusion_res.to_csv("grf_intrusion.csv")
+#np.random.seed(2022)
+#torch.manual_seed(2022)
+#base.set_seed(2022,kind = "L'Ecuyer-CMRG")
+#intrusion_res = scores(data_train = intrusion_train, data_test = intrusion_test, list_of_classifiers = intrusion_classifiers,
+#metric = intrusion_metrics, synthesizer = {"gen_rf": gen_rf})
+#intrusion_res.to_csv("grf_intrusion.csv")
 
 # mnist12
 np.random.seed(2022)
