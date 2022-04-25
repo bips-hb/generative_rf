@@ -59,15 +59,16 @@ def scores(data_train, data_test, list_of_classifiers, metric, synthesizer):
     syn_dat_res = syn_dat_res.append(res)
     return syn_dat_res
 
+rep = range(5)
+
 def run_benchmark(training_data, test_data, classifiers, metrics, data_synthesizer, seed = 2022):
     np.random.seed(seed)
     torch.manual_seed(seed)
-    return [scores(data_train = training_data[i], data_test = test_data[i], list_of_classifiers = classifiers[i], 
-    metric = metrics[i], synthesizer = data_synthesizer)for i in rep]
+    return [scores(data_train = training_data[i], data_test = test_data[i], list_of_classifiers = classifiers, 
+    metric = metrics, synthesizer = data_synthesizer) for i in rep]
 ################################
 # get indices of train/test data sets for each data set
 ################################
-rep = range(5)
 
 # adult 
 adult = load_tables(load_dataset('adult'))['adult']
