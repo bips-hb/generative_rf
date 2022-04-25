@@ -5,6 +5,7 @@ except:
 
 exec(open("benchmark_individual.py").read())
 
+from cgi import test
 from random import triangular
 import numpy as np
 import torch
@@ -82,12 +83,9 @@ metrics= credit_metrics, data_synthesizer= {"gen_rf": gen_rf})
 pd.concat(credit_res).to_csv("grf_credit.csv")
 
 # intrusion
-#np.random.seed(2022)
-#torch.manual_seed(2022)
-#base.set_seed(2022,kind = "L'Ecuyer-CMRG")
-#intrusion_res = scores(data_train = intrusion_train, data_test = intrusion_test, list_of_classifiers = intrusion_classifiers,
-#metric = intrusion_metrics, synthesizer = {"gen_rf": gen_rf})
-#intrusion_res.to_csv("grf_intrusion.csv")
+intrusion_res = run_grf_benchmark(training_data = intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
+metrics= intrusion_metrics, data_synthesizer= {"gen_rf": gen_rf})
+pd.concat(intrusion_res).to_csv("grf_intrusion.csv")
 
 # mnist12
 mnist12_res = run_grf_benchmark(training_data= mnist12_train, test_data= mnist12_test, classifiers= mnist12_classifiers,

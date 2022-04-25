@@ -6,12 +6,6 @@ except:
 exec(open("benchmark_individual.py").read())
 from sdv.tabular import TVAE
 
-def run_benchmark(training_data, test_data, classifiers, metrics, data_synthesizer, seed = 2022):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    return [scores(data_train = training_data[i], data_test = test_data[i], list_of_classifiers = classifiers[i], 
-    metric = metrics[i], synthesizer = data_synthesizer)for i in rep]
-
 # adult
 adult_res = run_benchmark(training_data =  adult_train, test_data= adult_test, classifiers= adult_classifiers, 
 metrics= adult_metrics, data_synthesizer= {"TVAE": TVAE()})
