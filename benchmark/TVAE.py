@@ -5,55 +5,44 @@ except:
 
 exec(open("benchmark_individual.py").read())
 from sdv.tabular import TVAE
-import numpy as np
-import torch
+
+def run_benchmark(training_data, test_data, classifiers, metrics, data_synthesizer, seed = 2022):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    return [scores(data_train = training_data[i], data_test = test_data[i], list_of_classifiers = classifiers[i], 
+    metric = metrics[i], synthesizer = data_synthesizer)for i in rep]
 
 # adult
-np.random.seed(2022)
-torch.manual_seed(2022)
-adult_res = scores(data_train = adult_train, data_test = adult_test, list_of_classifiers = adult_classifiers, 
-metric = adult_metrics, synthesizer = {"TVAE": TVAE()})
-adult_res.to_csv("TVAE_adult.csv")
+adult_res = run_benchmark(training_data =  adult_train, test_data= adult_test, classifiers= adult_classifiers, 
+metrics= adult_metrics, data_synthesizer= {"TVAE": TVAE()})
+pd.concat(adult_res).to_csv("TVAE_adult.csv")
 
 # census
-np.random.seed(2022)
-torch.manual_seed(2022)
-census_res = scores(data_train = census_train, data_test = census_test, list_of_classifiers = census_classifiers,
-metric = census_metrics, synthesizer = {"TVAE": TVAE()})
-census_res.to_csv("TVAE_census.csv")
+census_res = run_benchmark(training_data= census_train, test_data= census_test, classifiers= census_classifiers,
+metrics= census_metrics, data_synthesizer= {"TVAE": TVAE()})
+pd.concat(census_res).to_csv("TVAE_census.csv")
+
 # covtype
-np.random.seed(2022)
-torch.manual_seed(2022)
-covtype_res = scores(data_train = covtype_train, data_test = covtype_test, list_of_classifiers = covtype_classifiers,
-metric = covtype_metrics, synthesizer = {"TVAE": TVAE()})
-covtype_res.to_csv("TVAE_covtype.csv")
+covtype_res = run_benchmark(training_data= covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
+metrics= covtype_metrics, data_synthesizer= {"TVAE": TVAE()})
+pd.concat(covtype_res).to_csv("TVAE_covtype.csv")
+
 # credit
-np.random.seed(2022)
-torch.manual_seed(2022)
-credit_res = scores(data_train = credit_train, data_test = credit_test, list_of_classifiers = credit_classifiers,
-metric = credit_metrics, synthesizer = {"TVAE": TVAE()})
-credit_res.to_csv("TVAE_credit.csv")
+credit_res = run_benchmark(training_data= credit_train, test_data= credit_test,classifiers= credit_classifiers,
+metrics= credit_metrics, data_synthesizer= {"TVAE": TVAE()})
+pd.concat(credit_res).to_csv("TVAE_credit.csv")
+
 # intrusion
-np.random.seed(2022)
-torch.manual_seed(2022)
-intrusion_res = scores(data_train = intrusion_train, data_test = intrusion_test, list_of_classifiers = intrusion_classifiers,
-metric = intrusion_metrics, synthesizer = {"TVAE": TVAE()})
-intrusion_res.to_csv("TVAE_intrusion.csv")
+intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusion_test, classifiers = intrusion_classifiers,
+metrics = intrusion_metrics, data_synthesizer= {"TVAE": TVAE()})
+pd.concat(intrusion_res).to_csv("TVAE_intrusion.csv")
+
 # mnist12
-np.random.seed(2022)
-torch.manual_seed(2022)
-mnist12_res = scores(data_train = mnist12_train, data_test = mnist12_test, list_of_classifiers = mnist12_classifiers,
-metric = mnist12_metrics, synthesizer = {"TVAE": TVAE()})
-mnist12_res.to_csv("TVAE_mnist12.csv")
+mnist12_res = run_benchmark(training_data= mnist12_train, test_data= mnist12_test, classifiers= mnist12_classifiers,
+metrics= mnist12_metrics, data_synthesizer= {"TVAE": TVAE()})
+pd.concat(mnist12_res).to_csv("TVAE_mnist12.csv")
+
 # mnist28
-np.random.seed(2022)
-torch.manual_seed(2022)
-mnist28_res = scores(data_train = mnist28_train, data_test = mnist28_test, list_of_classifiers = mnist28_classifiers,
-metric = mnist28_metrics, synthesizer = {"TVAE": TVAE()})
-mnist28_res.to_csv("TVAE_mnist28.csv")
-# news 
-np.random.seed(2022)
-torch.manual_seed(2022)
-news_res = scores(data_train = news_train, data_test = news_test, list_of_classifiers = news_classifiers,
-metric = news_metrics, synthesizer = {"TVAE": TVAE()})
-news_res.to_csv("TVAE_news.csv")
+mnist28_res = run_benchmark(training_data= mnist28_train, test_data= mnist28_test, classifiers= mnist28_classifiers,
+metrics= mnist28_metrics, data_synthesizer= {"TVAE": TVAE()})
+pd.concat(mnist28_res).to_csv("TVAE_mnist28.csv")

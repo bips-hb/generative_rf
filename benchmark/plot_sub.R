@@ -1,7 +1,7 @@
 library(dplyr)
 library(ggplot2)
 library(reshape2)
-files <- c(list.files(path = "/Users/kristinblesch/Downloads/sub_res_2",
+files <- c(list.files(path = "/Users/kristinblesch/Desktop/BIPS/BIPS_inhalt/generative_RF/generative_rf/benchmark/subsample_reproducibility_2",
                       pattern = ".*\\.csv$",
                       all.files = FALSE, full.names = TRUE, recursive = FALSE, ignore.case = TRUE,
                       include.dirs = FALSE, no.. = FALSE))

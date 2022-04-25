@@ -1,3 +1,0 @@
-,dataset,model,classifier,wall_time,process_time,r2_score
-0,news,TVAE,MLPRegressor,580.6297954448964,2877.390067868997,-0.03334695813942834
-0,news,TVAE,LinearRegression,580.6297954448964,2877.390067868997,-0.2079914329256336

@@ -1,4 +1,0 @@
-,dataset,model,classifier,wall_time,process_time,accuracy_score,f1_micro,f1_macro
-0,mnist28,TVAE,BinaryDecisionTreeClassifier,4969.188660195097,6680.467764424,0.3609,0.3609,0.35147882919128215
-0,mnist28,TVAE,BinaryLogisticRegression,4969.188660195097,6680.467764424,0.4689,0.4689,0.453584506051077
-0,mnist28,TVAE,BinaryMLPClassifier,4969.188660195097,6680.467764424,0.4478,0.4478,0.4402129799022342

@@ -1,3 +1,0 @@
-,dataset,model,classifier,wall_time,process_time,r2_score
-0,news,Identity,MLPRegressor,0.0013621640391647816,0.0626626839984965,-0.0023277443369940087
-0,news,Identity,LinearRegression,0.0013621640391647816,0.0626626839984965,0.02213671713161791

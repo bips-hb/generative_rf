@@ -13,6 +13,6 @@ np.random.seed(2022)
 torch.manual_seed(2022)
 
 census_res = [scores(data_train = census_train_sub[i], data_test = census_test_sub[i], list_of_classifiers = census_classifiers,
-metric = census_metrics, synthesizer = {"Identity": Identity()}) for i in range(len(subs))]
+metric = census_metrics, synthesizer = {"oracle": oracle()}) for i in range(len(subs))]
 
-pd.concat(census_res).to_csv("Identity_sub.csv")
+pd.concat(census_res).to_csv("oracle_sub.csv")
