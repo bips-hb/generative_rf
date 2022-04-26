@@ -54,7 +54,6 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   
   # Get terminal nodes for all observations
   pred <- predict(rf, x_real, type = "terminalNodes")$predictions
-  n_trees <- ncol(pred)
   
   # If OOB, use only OOB trees
   if (oob) {
@@ -72,7 +71,7 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   
   # Fit continuous distribution in all terminal nodes
   if (any(!factor_cols)) {
-    params <- foreach(tree = 1:n_trees, .combine = rbind) %dopar% { 
+    params <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
       dt <- data.table(tree = tree, x_real[, !factor_cols, drop = FALSE], nodeid = pred[, tree])
       long <- melt(dt, id.vars = c("tree", "nodeid"))
       
@@ -86,7 +85,7 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
 
   # Calculate class probabilities for categorical data in all terminal nodes
   if (any(factor_cols)) {
-    class_probs <- foreach(tree = 1:n_trees, .combine = rbind) %dopar% { 
+    class_probs <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
       dt <- data.table(tree = tree, x_real[, factor_cols, drop = FALSE], nodeid = pred[, tree])
       long <- melt(dt, id.vars = c("tree", "nodeid"), value.factor = TRUE)
       setDT(long)[, .N, by = .(tree, nodeid, variable, value)]
@@ -100,7 +99,7 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   })
   
   # Randomly select tree for each new obs. (mixture distribution with equal prob.)
-  sampled_trees <- sample(n_trees, n_new, replace = TRUE)
+  sampled_trees <- sample(num_trees, n_new, replace = TRUE)
   sampled_nodes <- sapply(1:n_new, function(i) {
     nodeids[i, sampled_trees[i]]
   })
