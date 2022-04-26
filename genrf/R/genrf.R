@@ -13,7 +13,7 @@ genrf <- R6::R6Class(
   classname = "genrf",
   public = list(
     # Create and fit a generative random forest
-    initialize = function(x, oob = FALSE, dist = "normal", ...) {
+    initialize = function(x, oob = FALSE, dist = "normal", num_trees = 10, min_node_size = 5, ...) {
       # Convert input to data.frame
       private$orig_colnames <- colnames(x)
       x_real <- data.frame(x)
@@ -45,11 +45,11 @@ genrf <- R6::R6Class(
                    data.frame(y = 1, x_synth))
 
       # Fit ranger to both data
-      rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, ...)
+      rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, num.trees = num_trees, min.node.size = min_node_size, ...)
 
       # Get terminal nodes for all observations
       pred <- predict(rf, x_real, type = "terminalNodes")$predictions
-      private$num_trees <- ncol(pred)
+      private$n_trees <- ncol(pred)
 
       # If OOB, use only OOB trees
       if (oob) {
@@ -66,7 +66,7 @@ genrf <- R6::R6Class(
 
       # Fit continuous distribution in all terminal nodes
       if (any(!private$factor_cols)) {
-        private$params <- foreach(tree = 1:private$num_trees, .combine = rbind) %dopar% {
+        private$params <- foreach(tree = 1:private$n_trees, .combine = rbind) %dopar% {
           dt <- data.table(tree = tree, x_real[, !private$factor_cols, drop = FALSE], nodeid = pred[, tree])
           long <- melt(dt, id.vars = c("tree", "nodeid"))
 
@@ -84,7 +84,7 @@ genrf <- R6::R6Class(
 
       # Calculate class probabilities for categorical data in all terminal nodes
       if (any(private$factor_cols)) {
-        private$class_probs <- foreach(tree = 1:private$num_trees, .combine = rbind) %dopar% {
+        private$class_probs <- foreach(tree = 1:private$n_trees, .combine = rbind) %dopar% {
           dt <- data.table(tree = tree, x_real[, private$factor_cols, drop = FALSE], nodeid = pred[, tree])
           long <- melt(dt, id.vars = c("tree", "nodeid"), value.factor = TRUE)
           setDT(long)[, .N, by = .(tree, nodeid, variable, value)]
@@ -100,7 +100,7 @@ genrf <- R6::R6Class(
       })
 
       # Randomly select tree for each new obs. (mixture distribution with equal prob.)
-      sampled_trees <- sample(private$num_trees, n, replace = TRUE)
+      sampled_trees <- sample(private$n_trees, n, replace = TRUE)
       sampled_nodes <- sapply(1:n, function(i) {
         nodeids[i, sampled_trees[i]]
       })
@@ -165,7 +165,7 @@ genrf <- R6::R6Class(
     node_probs = matrix(), # Selection probabilities for terminal nodes; dims: [nodeid, tree]
     params = data.table(), # Distribution parameters for numeric columns; columns:
     class_probs = data.table(), # Probabilities for categorical columns; columns:
-    num_trees = integer(), # Number of trees in the random forest
+    n_trees = integer(), # Number of trees in the random forest
     p = integer(), # Number of columns in the data
     factor_cols = logical(), # Which columns are factors after transforming chars and logicals?
     orig_colnames = character(), # Original column names of the input data
