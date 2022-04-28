@@ -42,10 +42,11 @@ ggplot(data = df, aes(x = dataset, y = f1_1_mean, color = model)) + geom_line()+
   scale_x_continuous(trans='log10')+
   ggtitle("Mean F1 score and standard deviation for stratified census data")
 
-ggplot(data = df, aes(x = dataset, y = f1_2_mean, color = model)) + geom_line()+
-  geom_ribbon(aes(ymin=f1_2_mean-f1_2_sd, ymax=f1_2_mean+f1_2_sd, fill = model), 
+ggplot(data = df, aes(x = dataset, y = accuracy_score_mean, color = model)) + geom_line()+
+  geom_ribbon(aes(ymin=accuracy_score_mean-accuracy_score_sd, ymax=accuracy_score_mean+accuracy_score_sd, fill = model), 
               alpha=0.2, lty = "blank")+
-  ggtitle("Mean F1 score and standard deviation for stratified census data")
+  scale_x_continuous(trans='log10')+
+  ggtitle("accuracy")
 
 df = df %>% mutate(wall_time_mean = mean(wall_time), wall_time_sd = sd(wall_time)) %>% filter(model != "Identity")
 ggplot(data = df, aes(x = dataset, y = wall_time_mean, color = model)) + geom_line()+
@@ -53,6 +54,6 @@ ggplot(data = df, aes(x = dataset, y = wall_time_mean, color = model)) + geom_li
               alpha=0.2, lty = "blank")+
   ggtitle("Wall time mean and sd, stratified census data (5 rep.)")+
   scale_x_continuous(trans='log10')+ theme_bw()+
- #scale_y_continuous(trans= 'log10')+
+ scale_y_continuous(trans= 'log10')+
   ylab("Mean Wall Time")
 
