@@ -12,8 +12,8 @@ from rpy2.robjects import pandas2ri
 
 base = rpackages.importr('base')
 r = robjects.r
-r.source('../generative_ranger.R')
-#r.source('/home/blesch/generative_RF/generative_rf/generative_ranger.R')
+#r.source('../generative_ranger.R')
+r.source('/home/blesch/generative_RF/generative_rf/generative_ranger.R')
 generative_ranger = robjects.globalenv['generative_ranger']
 pandas2ri.activate()
 doPar = rpackages.importr('doParallel')
