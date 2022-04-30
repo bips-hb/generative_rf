@@ -21,8 +21,8 @@ from rpy2.robjects import pandas2ri
 #exec(open("benchmark_individual.py").read())
 base = rpackages.importr('base')
 r = robjects.r
-r.source('../generative_ranger.R')
-#r.source('/home/blesch/generative_RF/generative_rf/generative_ranger.R')
+#r.source('../generative_ranger.R')
+r.source('/home/blesch/generative_RF/generative_rf/generative_ranger.R')
 generative_ranger = robjects.globalenv['generative_ranger']
 pandas2ri.activate()
 doPar = rpackages.importr('doParallel')
@@ -32,11 +32,7 @@ doPar.registerDoParallel(40)
 
 # define generative_ranger version in python 
 def gen_rf(real_data):
-<<<<<<< HEAD
     grf_syn_dat = generative_ranger(x_real = real_data, n_new = real_data.shape[0], oob = False, num_trees = 10, min_node_size = 5 )
-=======
-    grf_syn_dat = generative_ranger(x_real = real_data, n_new = real_data.shape[0], oob = False, num_trees = 10, min_node_size = 5)
->>>>>>> 1b75399ab03381c8abe8d47e1b97533cb9f7e6d9
     return grf_syn_dat.astype(real_data.dtypes)
 
 # code data synthesizer 
