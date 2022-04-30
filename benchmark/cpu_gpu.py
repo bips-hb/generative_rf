@@ -67,7 +67,7 @@ def scores(data_train, data_test, list_of_classifiers, metric, synthesizer):
 adult = load_tables(load_dataset('adult'))['adult']
 sub_classifiers = [BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryLogisticRegression,BinaryMLPClassifier]
 sub_metrics = [f1_none, accuracy_score]
-subs_log = np.exp(np.linspace(np.log(1000), np.log(32561), 7))
+subs_log = np.exp(np.linspace(np.log(1000), np.log(32561), 8))
 subs = [round(i) for i in subs_log] 
 train_sub, test_sub = zip(*[train_test_split(adult,
 train_size=round(23/(10+23)*i),test_size=round(10/(10+23)*i), stratify=adult['label'], random_state=2022) for i in subs])
