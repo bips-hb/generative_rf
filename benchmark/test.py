@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 try:
     exec(open("benchmark_individual.py").read())
 except:
@@ -36,3 +37,7 @@ rr = rpackages.importr('ranger')
 
 dat = adult_train[1]
 pred = rr.ranger(formula = Formula('age ~ education'), data = dat, keep_inbag = True, classification = True, num_trees = 3, min_node_size = 11)
+=======
+import pandas as pd
+pd.read_csv("TVAE_adult.csv")
+>>>>>>> 1b75399ab03381c8abe8d47e1b97533cb9f7e6d9
