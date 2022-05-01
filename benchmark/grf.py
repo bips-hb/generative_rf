@@ -58,14 +58,14 @@ def run_grf_benchmark(training_data, test_data, classifiers, metrics, data_synth
     metric = metrics, synthesizer = data_synthesizer)for i in rep]
 
 # adult
-adult_res = run_grf_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
-metrics= adult_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(adult_res).to_csv("grf_adult.csv")
+#adult_res = run_grf_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
+#metrics= adult_metrics, data_synthesizer= {"gen_rf": gen_rf})
+#pd.concat(adult_res).to_csv("grf_adult.csv")
 
 # census
-census_res = run_grf_benchmark(training_data= census_train, test_data= census_test, classifiers= census_classifiers,
-metrics = census_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(census_res).to_csv("grf_census.csv")
+#census_res = run_grf_benchmark(training_data= census_train, test_data= census_test, classifiers= census_classifiers,
+#metrics = census_metrics, data_synthesizer= {"gen_rf": gen_rf})
+#pd.concat(census_res).to_csv("grf_census.csv")
 
 # covtype
 covtype_res = run_grf_benchmark(training_data= covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
