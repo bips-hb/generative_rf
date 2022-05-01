@@ -54,8 +54,9 @@ def run_grf_benchmark(training_data, test_data, classifiers, metrics, data_synth
     np.random.seed(seed)
     torch.manual_seed(seed)
     base.set_seed(2022,kind = "L'Ecuyer-CMRG")
-    return [scores(data_train = training_data[i], data_test = test_data[i], list_of_classifiers = classifiers, 
-    metric = metrics, synthesizer = data_synthesizer)for i in rep]
+    comp_exp = (scores(data_train = training_data[i], data_test = test_data[i], list_of_classifiers = classifiers, 
+    metric = metrics, synthesizer = data_synthesizer)for i in rep)
+    return list(comp_exp)
 
 # adult
 #adult_res = run_grf_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
