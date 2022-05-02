@@ -13,7 +13,7 @@ genrf <- R6::R6Class(
   classname = "genrf",
   public = list(
     # Create and fit a generative random forest
-    initialize = function(x, oob = FALSE, dist = "normal", ...) {
+    initialize = function(x, oob = FALSE, dist = "normal", num_trees = 10, min_node_size = 5, ...) {
       # Convert input to data.frame
       private$orig_colnames <- colnames(x)
       x_real <- data.frame(x)
@@ -45,11 +45,10 @@ genrf <- R6::R6Class(
                    data.frame(y = 1, x_synth))
 
       # Fit ranger to both data
-      rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, ...)
+      rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, num.trees = num_trees, min.node.size = min_node_size, ...)
 
       # Get terminal nodes for all observations
       pred <- predict(rf, x_real, type = "terminalNodes")$predictions
-      private$num_trees <- ncol(pred)
 
       # If OOB, use only OOB trees
       if (oob) {

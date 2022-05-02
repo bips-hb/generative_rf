@@ -10,15 +10,17 @@ library(data.table)
 #' @param n_new Number of synthetic observations to sample.
 #' @param oob Use only out-of-bag data to calculate leaf probabilities?
 #' @param dist Distribution to fit in terminal nodes to continuous data. Currently implemented: "normal", "exponential", "geometric", "lognormal", "Poisson".
-#' @param ... Passed on to the ranger() call; use for 'num.trees', 'min.node.size', etc.
+#' @param num_trees Number of trees 
+#' @param min_node_size Minimal node size
+#' @param ... Passed on to the ranger() call; use for 'max.depth', etc.
 #'
 #' @return data.frame with synthetic data.
 #' @export
 #'
 #' @examples
-#' generative_ranger(x_real = iris, n_new = 100, num.trees = 50)
+#' generative_ranger(x_real = iris, n_new = 100)
 generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
-                              dist = "normal", ...) {
+                              dist = "normal", num_trees = 10, min_node_size = 5, ...) {
   
   # Convert to data.frame
   orig_colnames <- colnames(x_real)
@@ -48,11 +50,10 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
                data.frame(y = 1, x_synth))
   
   # Fit ranger to both data
-  rf <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, ...)
+  rf <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, num.trees = num_trees, min.node.size = min_node_size, ...)
   
   # Get terminal nodes for all observations
   pred <- predict(rf, x_real, type = "terminalNodes")$predictions
-  num_trees <- ncol(pred)
   
   # If OOB, use only OOB trees
   if (oob) {
