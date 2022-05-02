@@ -50,132 +50,45 @@ def synth_data(data_train, synthesizer):
         return synthesizer.sample(data_train.shape[0])  
 
 
-def run_grf_benchmark(i, training_data, test_data, classifiers, metrics, data_synthesizer, seed = 2022):
+def run_grf_benchmark(training_data, test_data, classifiers, metrics, data_synthesizer, seed = 2022):
     np.random.seed(seed)
     torch.manual_seed(seed)
     base.set_seed(2022,kind = "L'Ecuyer-CMRG")
-    return scores(data_train = training_data[i], data_test = test_data[i], list_of_classifiers = classifiers, 
-    metric = metrics, synthesizer = data_synthesizer)
+    comp = (scores(data_train = training_data[i], data_test = test_data[i], list_of_classifiers = classifiers, 
+    metric = metrics, synthesizer = data_synthesizer) for i in rep)
+    return list(comp)
 
 # adult
-#adult_res = run_grf_benchmark(i = 0, training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
-#metrics= adult_metrics, data_synthesizer= {"gen_rf": gen_rf})
-#adult_res.to_csv("grf_adult-0.csv")
+adult_res = run_grf_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
+metrics= adult_metrics, data_synthesizer= {"gen_rf": gen_rf})
+pd.concat(adult_res).to_csv("grf_adult.csv")
 
 # census
-#census_res = run_grf_benchmark(training_data= census_train, test_data= census_test, classifiers= census_classifiers,
-#metrics = census_metrics, data_synthesizer= {"gen_rf": gen_rf})
-#pd.concat(census_res).to_csv("grf_census.csv")
+census_res = run_grf_benchmark(training_data= census_train, test_data= census_test, classifiers= census_classifiers,
+metrics = census_metrics, data_synthesizer= {"gen_rf": gen_rf})
+pd.concat(census_res).to_csv("grf_census.csv")
 
 # covtype
-covtype_res = run_grf_benchmark(i = 0, training_data= covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
+covtype_res = run_grf_benchmark(training_data= covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
 metrics = covtype_metrics, data_synthesizer= {"gen_rf": gen_rf})
-covtype_res.to_csv("grf_covtype-0.csv")
-# covtype
-covtype_res = run_grf_benchmark(i =1, training_data= covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
-metrics = covtype_metrics, data_synthesizer= {"gen_rf": gen_rf})
-covtype_res.to_csv("grf_covtype-1.csv")
-# covtype
-covtype_res = run_grf_benchmark(i = 2, training_data= covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
-metrics = covtype_metrics, data_synthesizer= {"gen_rf": gen_rf})
-covtype_res.to_csv("grf_covtype-2.csv")
-# covtype
-covtype_res = run_grf_benchmark(i = 3, training_data= covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
-metrics = covtype_metrics, data_synthesizer= {"gen_rf": gen_rf})
-covtype_res.to_csv("grf_covtype-3.csv")
-# covtype
-covtype_res = run_grf_benchmark(i = 4, training_data= covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
-metrics = covtype_metrics, data_synthesizer= {"gen_rf": gen_rf})
-covtype_res.to_csv("grf_covtype-4.csv")
+pd.concat(covtype_res).to_csv("grf_covtype.csv")
 
 # credit
-credit_res = run_grf_benchmark(i = 0, training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
+credit_res = run_grf_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
 metrics= credit_metrics, data_synthesizer= {"gen_rf": gen_rf})
-credit_res.to_csv("grf_credit-0.csv")
-# credit
-credit_res = run_grf_benchmark(i = 1, training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
-metrics= credit_metrics, data_synthesizer= {"gen_rf": gen_rf})
-credit_res.to_csv("grf_credit-1.csv")
-# credit
-credit_res = run_grf_benchmark(i = 2, training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
-metrics= credit_metrics, data_synthesizer= {"gen_rf": gen_rf})
-credit_res.to_csv("grf_credit-2.csv")
-# credit
-credit_res = run_grf_benchmark(i = 3, training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
-metrics= credit_metrics, data_synthesizer= {"gen_rf": gen_rf})
-credit_res.to_csv("grf_credit-3.csv")
-# credit
-credit_res = run_grf_benchmark(i = 4, training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
-metrics= credit_metrics, data_synthesizer= {"gen_rf": gen_rf})
-credit_res.to_csv("grf_credit-4.csv")
-
+pd.concat(credit_res).to_csv("grf_credit.csv")
 
 # intrusion
-intrusion_res = run_grf_benchmark(i = 0, training_data = intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
+intrusion_res = run_grf_benchmark(training_data = intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
 metrics= intrusion_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(intrusion_res).to_csv("grf_intrusion-0.csv")
-# intrusion
-intrusion_res = run_grf_benchmark(i = 1, training_data = intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
-metrics= intrusion_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(intrusion_res).to_csv("grf_intrusion-1.csv")
-# intrusion
-intrusion_res = run_grf_benchmark(i = 2, training_data = intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
-metrics= intrusion_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(intrusion_res).to_csv("grf_intrusion-2.csv")
-# intrusion
-intrusion_res = run_grf_benchmark(i = 3, training_data = intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
-metrics= intrusion_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(intrusion_res).to_csv("grf_intrusion-3.csv")
-# intrusion
-intrusion_res = run_grf_benchmark(i = 4, training_data = intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
-metrics= intrusion_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(intrusion_res).to_csv("grf_intrusion-4.csv")
-
+pd.concat(intrusion_res).to_csv("grf_intrusion.csv")
 
 # mnist12
-mnist12_res = run_grf_benchmark(i = 0, training_data= mnist12_train, test_data= mnist12_test, classifiers= mnist12_classifiers,
+mnist12_res = run_grf_benchmark(training_data= mnist12_train, test_data= mnist12_test, classifiers= mnist12_classifiers,
 metrics= mnist12_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist12_res).to_csv("grf_mnist12-0.csv")
-
-# mnist12
-mnist12_res = run_grf_benchmark(i = 1, training_data= mnist12_train, test_data= mnist12_test, classifiers= mnist12_classifiers,
-metrics= mnist12_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist12_res).to_csv("grf_mnist12-1.csv")
-
-# mnist12
-mnist12_res = run_grf_benchmark(i = 2, training_data= mnist12_train, test_data= mnist12_test, classifiers= mnist12_classifiers,
-metrics= mnist12_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist12_res).to_csv("grf_mnist12-2.csv")
-
-# mnist12
-mnist12_res = run_grf_benchmark(i = 3, training_data= mnist12_train, test_data= mnist12_test, classifiers= mnist12_classifiers,
-metrics= mnist12_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist12_res).to_csv("grf_mnist12-3.csv")
-
-# mnist12
-mnist12_res = run_grf_benchmark(i = 4, training_data= mnist12_train, test_data= mnist12_test, classifiers= mnist12_classifiers,
-metrics= mnist12_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist12_res).to_csv("grf_mnist12-4.csv")
-
+pd.concat(mnist12_res).to_csv("grf_mnist12.csv")
 
 # mnist28
-mnist28_res = run_grf_benchmark(i = 0, training_data= mnist28_train, test_data= mnist28_test, classifiers= mnist28_classifiers,
+mnist28_res = run_grf_benchmark(training_data= mnist28_train, test_data= mnist28_test, classifiers= mnist28_classifiers,
 metrics= mnist28_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist28_res).to_csv("grf_mnist28-0.csv")
-# mnist28
-mnist28_res = run_grf_benchmark(i = 1, training_data= mnist28_train, test_data= mnist28_test, classifiers= mnist28_classifiers,
-metrics= mnist28_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist28_res).to_csv("grf_mnist28-1.csv")
-# mnist28
-mnist28_res = run_grf_benchmark(i = 2, training_data= mnist28_train, test_data= mnist28_test, classifiers= mnist28_classifiers,
-metrics= mnist28_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist28_res).to_csv("grf_mnist28-2.csv")
-# mnist28
-mnist28_res = run_grf_benchmark(i = 3, training_data= mnist28_train, test_data= mnist28_test, classifiers= mnist28_classifiers,
-metrics= mnist28_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist28_res).to_csv("grf_mnist28-3.csv")
-# mnist28
-mnist28_res = run_grf_benchmark(i = 4, training_data= mnist28_train, test_data= mnist28_test, classifiers= mnist28_classifiers,
-metrics= mnist28_metrics, data_synthesizer= {"gen_rf": gen_rf})
-pd.concat(mnist28_res).to_csv("grf_mnist28-4.csv")
-
+pd.concat(mnist28_res).to_csv("grf_mnist28.csv")

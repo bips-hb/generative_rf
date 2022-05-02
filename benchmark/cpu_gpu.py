@@ -85,7 +85,13 @@ def run_sub(synthesizer_dict, R_seed = False):
     res = [scores(data_train = train_sub[i], data_test = test_sub[i], list_of_classifiers = sub_classifiers, 
     metric = sub_metrics, synthesizer =  synthesizer_dict)  for i in range(len(subs))]
     return res
-    
+  
+def run_CTGAN_cpu_sub(i, synthesizer_dict):
+    np.random.seed(2022)
+    torch.manual_seed(2022)
+    res = scores(data_train = train_sub[i], data_test = test_sub[i], list_of_classifiers = sub_classifiers, 
+    metric = sub_metrics, synthesizer =  synthesizer_dict) 
+    return res
 
 
 
