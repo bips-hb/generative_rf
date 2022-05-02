@@ -7,8 +7,8 @@ exec(open("cpu_gpu.py").read())
 
 from sdv.tabular import CTGAN
 
-#sub_0 = run_CTGAN_cpu_sub(range_i = range(8),  synthesizer_dict =  {"CTGAN": CTGAN(cuda=False)} )
-#pd.concat(sub_0).to_csv("CTGAN_cpu-0.csv")
+sub_0 = run_CTGAN_cpu_sub(range_i = range(8),  synthesizer_dict =  {"CTGAN": CTGAN(cuda=False)} )
+pd.concat(sub_0).to_csv("CTGAN_cpu-0.csv")
 
 sub_1 = run_CTGAN_cpu_sub(range_i = range(8,16), synthesizer_dict =  {"CTGAN": CTGAN(cuda=False)} )
 pd.concat(sub_1).to_csv("CTGAN_cpu-1.csv")

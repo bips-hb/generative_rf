@@ -69,8 +69,9 @@ sub_classifiers = [BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryL
 sub_metrics = [f1_none, accuracy_score]
 subs_log = np.exp(np.linspace(np.log(1000), np.log(32561), 8))
 subs = [round(i) for i in subs_log]*5
+np.random.seed(2022)
 train_sub, test_sub = zip(*[train_test_split(adult,
-train_size=round(23/(10+23)*i),test_size=round(10/(10+23)*i), stratify=adult['label'], random_state=2022) for i in subs])
+train_size=round(23/(10+23)*i),test_size=round(10/(10+23)*i), stratify=adult['label']) for i in subs])
 
 for i in range(len(subs)):
   train_sub[i].name = subs[i]
