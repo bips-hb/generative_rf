@@ -9,7 +9,7 @@ library(data.table)
 #' @param x_synth Naive synthetic data, if NULL will be sampled from marginals.
 #' @param n_new Number of synthetic observations to sample.
 #' @param oob Use only out-of-bag data to calculate leaf probabilities?
-#' @param dist Distribution to fit in terminal nodes to continuous data. Currently implemented: "normal", "exponential", "geometric", "lognormal", "Poisson".
+#' @param dist Distribution to fit in terminal nodes to continuous data. Currently implemented: "normal", "exponential", "geometric", "lognormal", "Poisson", "pwc" (piecewise constant). 
 #' @param num_trees Number of trees 
 #' @param min_node_size Minimal node size
 #' @param ... Passed on to the ranger() call; use for 'max.depth', etc.
@@ -77,6 +77,8 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
       
       if (dist == "normal") {
         long[, list(mean = mean(value), sd = sd(value)), by = .(tree, nodeid, variable)]
+      } else if (dist == "pwc") {
+        long[, list(mean = mean(value)), by = .(tree, nodeid, variable)]
       } else {
         long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, nodeid, variable)]
       }
@@ -136,6 +138,8 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
                sdlog = obs_params[variable == colname, sdlog])
       } else if (dist == "Poisson") {
         rpois(n = n_new, obs_params[variable == colname, lambda])
+      } else if (dist == "pwc") {
+        rep(obs_params[variable == colname, mean], n_new)
       } else {
         stop("Unknown distribution.")
       }

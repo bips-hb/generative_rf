@@ -75,6 +75,8 @@ genrf <- R6::R6Class(
             long[, list(mu = mean(value), s2 = var(value)), by = .(tree, nodeid, variable)]
             long[, alpha := ((1 - mu) / s2 - 1 / mu) * mu^2]
             long[, beta := alpha * (1 / mu - 1)]
+          } else if (dist == "pwc") {
+            long[, list(mean = mean(value)), by = .(tree, nodeid, variable)]
           } else {
             long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, nodeid, variable)]
           }
@@ -139,6 +141,8 @@ genrf <- R6::R6Class(
                    sdlog = obs_params[variable == colname, sdlog])
           } else if (private$dist == "Poisson") {
             rpois(n = n, obs_params[variable == colname, lambda])
+          } else if (private$dist == "pwc") {
+            rep(obs_params[variable == colname, mean], n)
           } else {
             stop("Unknown distribution.")
           }
