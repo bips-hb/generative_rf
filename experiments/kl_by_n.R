@@ -9,7 +9,7 @@ set.seed(42)
 
 # Simulation parameters ---------------------------------------------------
 repls <- 20
-n <- c(seq(100, 1000, by = 100), seq(2000, 10000, 1000))
+n <- 10^(seq(2, 4, length.out = 10))
 p <- c(6, 8, 10)
 cov_base <- .3
 num_trees <- 10
@@ -55,8 +55,8 @@ prob_design <- list(myprob = expand.grid(n = n,
                                          p = p, 
                                          cov_base = cov_base,
                                          stringsAsFactors = FALSE))
-algo_design <- list(genrf = expand.grid(num.trees = num.trees, 
-                                        min.node.size = min.node.size,
+algo_design <- list(genrf = expand.grid(num_trees = num_trees, 
+                                        min_node_size = min_node_size,
                                         oob = oob,
                                         dist = dist,
                                         stringsAsFactors = FALSE))
@@ -91,18 +91,24 @@ saveRDS(res, paste0(reg_name, ".Rds"))
 res <- readRDS(paste0(reg_name, ".Rds"))
 
 # Plot KL by n ------------------------------------------------------------
-res_mean <- res[, mean(KL), by = .(n, p, cov_base, num.trees, min.node.size, oob)]
+res_mean <- res[, mean(KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist)]
 res_mean[, KL := V1]
 res_mean[, Dimensionality := as.factor(p)]
+res_mean[, Method := factor(dist, levels = c("pwc", "normal"), 
+                            labels = c("Piecewise constant", "FORGE"))]
 
-ggplot(res_mean, aes(x = n, y = KL, col = Dimensionality, shape = Dimensionality)) + 
-  geom_line() + geom_point() + 
+ggplot(res_mean, aes(x = n, y = KL, col = Dimensionality, shape = Method, linetype = Method)) + 
+  geom_line() + 
+  #geom_point() + 
   geom_hline(yintercept = 0) + 
-  theme_bw() + 
   xlab("Sample size") + 
   ylab("KL divergence") + 
   scale_x_continuous(trans='log10') + 
-  scale_color_npg()
+  scale_color_npg() + 
+  scale_linetype_manual(values = c(2, 1)) +
+  theme_bw() + 
+  theme(legend.justification = c(1,1), legend.position = c(.99, .99), 
+        legend.spacing.y = unit(1, 'mm'))
 
-ggsave(paste0(reg_name, ".pdf"), width = 8, height = 5)
+ggsave(paste0(reg_name, ".pdf"), width = 5, height = 4)
 
