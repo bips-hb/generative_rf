@@ -19,6 +19,7 @@ genrf <- R6::R6Class(
       x_real <- data.frame(x)
       private$p <- ncol(x_real)
       private$dist <- dist
+      private$num_trees <- num_trees
 
       # Convert chars and logicals to factors
       private$idx_char <- sapply(x_real, is.character)
