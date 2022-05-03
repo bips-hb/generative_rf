@@ -10,11 +10,12 @@ set.seed(42)
 # Simulation parameters ---------------------------------------------------
 repls <- 20
 n <- c(seq(100, 1000, by = 100), seq(2000, 10000, 1000))
-p <- c(2, 4, 6, 8, 10)
+p <- c(6, 8, 10)
 cov_base <- .3
-num.trees <- 10
-min.node.size <- 5
+num_trees <- 10
+min_node_size <- 5
 oob <- FALSE
+dist <- c("normal", "pwc")
 
 # Registry ----------------------------------------------------------------
 reg_name <- "kl_by_n"
@@ -57,6 +58,7 @@ prob_design <- list(myprob = expand.grid(n = n,
 algo_design <- list(genrf = expand.grid(num.trees = num.trees, 
                                         min.node.size = min.node.size,
                                         oob = oob,
+                                        dist = dist,
                                         stringsAsFactors = FALSE))
 addExperiments(prob_design, algo_design, repls = repls)
 summarizeExperiments()
