@@ -20,7 +20,7 @@ res <- replicate(repl, {
   x_df <- as.data.frame(x)
   
   # Generate synthetic data
-  mod <- genrf$new(x_df, num.trees = 10,  min.node.size = 5)
+  mod <- genrf$new(x_df, num_trees = 10,  min_node_size = 5)
   synth <- mod$sample(n)
   cor(synth)
 })

@@ -11,7 +11,7 @@ n <- c(100, 1000)
 sim_fun <- function(n) {
   x <- data.twomoons(n = n, graph = FALSE)
   
-  mod <- genrf$new(x, num.trees = 10, min.node.size = 5, mtry = 2)
+  mod <- genrf$new(x, num_trees = 10, min_node_size = 5, mtry = 2)
   synth <- mod$sample(n)
   
   df <- rbind(data.frame(Data = "Original", x), 
