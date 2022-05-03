@@ -1,5 +1,0 @@
-#Date       Time        gpu    fb  bar1    sm   mem   enc   dec
-#YYYYMMDD   HH:MM:SS    Idx    MB    MB     %     %     %     %
- 20220426   16:48:13      0  1300     7     0     0     0     0
- 20220426   16:48:18      0  1300     7     0     0     0     0
- 20220426   16:48:23      0  1300     7     0     0     0     0

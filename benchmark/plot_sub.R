@@ -1,14 +1,17 @@
 library(dplyr)
 library(ggplot2)
 library(reshape2)
-files <- c(list.files(path = "/Users/kristinblesch/Desktop/BIPS/BIPS_inhalt/generative_RF/generative_rf/benchmark/subsample_reproducibility_2",
+files <- c(list.files(path = "/Users/kristinblesch/Desktop/BIPS/BIPS_inhalt/generative_RF/generative_rf/benchmark/sub_results",
                       pattern = ".*\\.csv$",
                       all.files = FALSE, full.names = TRUE, recursive = FALSE, ignore.case = TRUE,
                       include.dirs = FALSE, no.. = FALSE))
 df <- data.frame()
 for (i in 1:length(files)) {
-  df <- bind_rows(df, read.csv(files[i]))
+  my_df <- read.csv(files[i])
+  my_df$processing_unit <- ifelse(grepl("cpu", files[i]), "CPU", "GPU")
+  df <- bind_rows(df, my_df)
 } 
+
 helper_fun <- function(f1_char, first = T){
   list_f1 = gsub('[', "",f1_char , fixed = T) %>% gsub(']', "", ., fixed = T) %>% 
     strsplit(., split = " ") %>% lapply(as.numeric) %>% lapply(., function(x) {na.omit(x)[1:2]})
@@ -18,42 +21,65 @@ helper_fun <- function(f1_char, first = T){
 
 df =df %>% mutate(f1_1 = helper_fun(f1_none, first = T)) %>% 
   mutate(f1_2 = helper_fun(f1_none, first = F)) %>%
-  group_by(dataset, model) %>% mutate(f1_1_mean = mean(f1_1), f1_2_mean = mean(f1_2), accuracy_score_mean = mean(accuracy_score),
-                                      f1_1_sd = sd(f1_1), f1_2_sd = sd(f1_2), accuracy_score_sd = sd(accuracy_score))%>%
-  select(- c(classifier, X, f1_none)) %>% distinct()
+  group_by(dataset, processing_unit, model) %>% mutate(mean_f1_1 = mean(f1_1), mean_f1_2 = mean(f1_2), mean_accuracy_score = mean(accuracy_score),
+                                                       sd_f1_1 = sd(f1_1), sd_f1_2 = sd(f1_2), sd_accuracy_score = sd(accuracy_score),
+                                      mean_process_time = mean(process_time), mean_wall_time = mean(wall_time),
+                                      sd_process_time = sd(process_time), sd_wall_time = sd(wall_time))%>%
+  select(- c(classifier, X, f1_none, wall_time, process_time, accuracy_score, f1_1, f1_2)) %>% distinct()
 
+df$model[df$model == "gen_rf"] = "FORGE"
+df$`model and processing unit` = paste(df$model, df$processing_unit, sep = "_")
 
-melted_df <-  melt(df, id.vars = c("model", "dataset", "wall_time", "process_time"),value.name = "value", variable.name = "score" )
-plot_by_hand <-  ggplot(data = melted_df)+
-  facet_grid(rows = vars(score), cols = vars(dataset))+
-  geom_point(aes(x = model, y = value, col = model))
-plot_by_hand
+#-------------------
+# time plots
+#-------------------
 
-melted_df_time <- df %>% select(-c(accuracy_score_mean, f1_1_mean, f1_2_mean, accuracy_score_sd, f1_1_sd, f1_2_sd)) %>% melt(., id.vars = c("model", "dataset"), variable.name = "time", value.name = "value")
-plot_time <- ggplot(data = melted_df_time)+
-  facet_grid(rows = vars(time), cols = vars(dataset))+
-  geom_point(aes(x = model, y = value, col = model))
-plot_time
-
-ggplot(data = df, aes(x = dataset, y = f1_1_mean, color = model)) + geom_line()+
-  geom_ribbon(aes(ymin=f1_1_mean-f1_1_sd, ymax=f1_1_mean+f1_1_sd, fill = model), 
-             alpha=0.2, lty = "blank")+
-  theme_bw()+ geom_point()+
-  scale_x_continuous(trans='log10')+
-  ggtitle("Mean F1 score and standard deviation for stratified census data")
-
-ggplot(data = df, aes(x = dataset, y = accuracy_score_mean, color = model)) + geom_line()+
-  geom_ribbon(aes(ymin=accuracy_score_mean-accuracy_score_sd, ymax=accuracy_score_mean+accuracy_score_sd, fill = model), 
+ggplot(data = df %>% filter(model != "oracle") , aes(x = dataset, y = mean_wall_time, color = `model and processing unit`)) + geom_line()+
+  geom_ribbon(aes(ymin=mean_wall_time-sd_wall_time, ymax=mean_wall_time+sd_wall_time, fill = `model and processing unit`), 
               alpha=0.2, lty = "blank")+
-  scale_x_continuous(trans='log10')+
-  ggtitle("accuracy")
-
-df = df %>% mutate(wall_time_mean = mean(wall_time), wall_time_sd = sd(wall_time)) %>% filter(model != "Identity")
-ggplot(data = df, aes(x = dataset, y = wall_time_mean, color = model)) + geom_line()+
-  geom_ribbon(aes(ymin=wall_time_mean-wall_time_sd, ymax=wall_time_mean+wall_time_sd, fill = model), 
-              alpha=0.2, lty = "blank")+
-  ggtitle("Wall time mean and sd, stratified census data (5 rep.)")+
+  ggtitle("Wall time mean and sd, stratified adult data (5 rep.)")+
   scale_x_continuous(trans='log10')+ theme_bw()+
- scale_y_continuous(trans= 'log10')+
-  ylab("Mean Wall Time")
+ #scale_y_continuous(trans= 'log10')+
+  ylab("wall time")+
+  xlab("n")
+
+ggplot(data = df %>% filter(model != "oracle") , aes(x = dataset, y = mean_process_time, color = `model and processing unit`)) + geom_line()+
+  geom_ribbon(aes(ymin=mean_process_time-sd_process_time, ymax=mean_process_time+sd_process_time, fill = `model and processing unit`), 
+              alpha=0.2, lty = "blank")+
+  ggtitle("process time mean and sd, stratified adult data (5 rep.)")+
+  scale_x_continuous(trans='log10')+ theme_bw()+
+  scale_y_continuous(trans= 'log10')+
+  ylab("process time")+
+  xlab("n")
+
+#---------------------
+# performance plots
+#---------------------
+
+ggplot(data = df , aes(x = dataset, y = mean_accuracy_score, color = `model and processing unit`)) + geom_line()+
+  geom_ribbon(aes(ymin=mean_accuracy_score-sd_accuracy_score, ymax=mean_accuracy_score+sd_accuracy_score, fill = `model and processing unit`), 
+              alpha=0.2, lty = "blank")+
+  ggtitle("accuracy_score mean and sd, stratified adult data (5 rep.)")+
+  scale_x_continuous(trans='log10')+ theme_bw()+
+  #scale_y_continuous(trans= 'log10')+
+  ylab("mean accuracy_score")+
+  xlab("n")
+
+ggplot(data = df , aes(x = dataset, y = mean_f1_1, color = `model and processing unit`)) + geom_line()+
+  geom_ribbon(aes(ymin=mean_f1_1-sd_f1_1, ymax=mean_f1_1+sd_f1_1, fill = `model and processing unit`), 
+              alpha=0.2, lty = "blank")+
+  ggtitle("f1_1 mean and sd, stratified adult data (5 rep.)")+
+  scale_x_continuous(trans='log10')+ theme_bw()+
+  #scale_y_continuous(trans= 'log10')+
+  ylab("mean accuracy_score")+
+  xlab("n")
+
+ggplot(data = df , aes(x = dataset, y = mean_f1_2, color = `model and processing unit`)) + geom_line()+
+  geom_ribbon(aes(ymin=mean_f1_2-sd_f1_2, ymax=mean_f1_2+sd_f1_2, fill = `model and processing unit`), 
+              alpha=0.2, lty = "blank")+
+  ggtitle("f1_2 mean and sd, stratified adult data (5 rep.)")+
+  scale_x_continuous(trans='log10')+ theme_bw()+
+  #scale_y_continuous(trans= 'log10')+
+  ylab("mean accuracy_score")+
+  xlab("n")
 
