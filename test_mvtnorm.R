@@ -12,10 +12,12 @@ p <- 6
 cov_base <- .6
 
 # Simulate multivariate normal data (Toeplitz structure)
+mu <- rep(0, p)
 sigma <- toeplitz(cov_base^(0:(p-1)))
-x <- matrix(rmvnorm(n = n, sigma = sigma), ncol = p,
+x <- matrix(rmvnorm(n = n, mu = mu, sigma = sigma), ncol = p,
             dimnames = list(NULL, paste0('x', seq_len(p))))
 x_df <- as.data.frame(x)
+
 
 # Generate synthetic data
 x_new <- generative_ranger(x_real = x_df, x_synth = NULL, n_new = 1000,
@@ -26,3 +28,14 @@ x_sy_df <- rbind(data.frame(data = "synthetic", x_new),
                  data.frame(data = "original", x_df))
 ggpairs(x_sy_df, columns = 2:7, ggplot2::aes(colour=data)) + 
   theme_bw()
+
+# Calculate KL divergence
+library(Rfast)
+library(monomvn)
+
+est <- mvnorm.mle(as.matrix(x_new))
+
+kl.norm(mu1 = mu, S1 = sigma,
+        mu2 = est$mu, S2 = est$sigma)
+
+

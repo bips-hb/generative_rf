@@ -27,7 +27,7 @@ ggplot(df, aes(x = X, y = Y, col = Data, shape = Class)) +
   geom_point() + 
   theme_bw() + 
   scale_color_npg()
-ggsave(paste0("twomoons", ".pdf"), width = 8.5, height = 5)
+ggsave(paste0("twomoons", ".pdf"), width = 8.5, height = 3.8)
 
 # # Plot pairs
 # library(GGally)
