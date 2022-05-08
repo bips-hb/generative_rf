@@ -33,22 +33,25 @@ df$`model and processing unit` = paste(df$model, df$processing_unit, sep = "_")
 #-------------------
 # time plots
 #-------------------
-
+colcol = c("cornflowerblue",  "cadetblue3","coral3", "coral","seagreen")
 ggplot(data = df %>% filter(model != "oracle") , aes(x = dataset, y = mean_wall_time, color = `model and processing unit`)) + geom_line()+
   geom_ribbon(aes(ymin=mean_wall_time-sd_wall_time, ymax=mean_wall_time+sd_wall_time, fill = `model and processing unit`), 
               alpha=0.2, lty = "blank")+
-  ggtitle("Wall time mean and sd, stratified adult data (5 rep.)")+
-  scale_x_continuous(trans='log10')+ theme_bw()+
+  ggtitle("Wall time for data synthesis mean and sd, stratified adult data (5 rep.)")+ geom_point()+
+  #scale_x_continuous(trans='log10')+
  #scale_y_continuous(trans= 'log10')+
-  ylab("wall time")+
-  xlab("n")
+  ylab("wall time (sec)")+
+  theme_bw()+
+  theme(legend.position = 'bottom', legend.title = element_blank())+
+  scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), breaks=c('CTGAN_CPU', 'CTGAN_GPU', 'TVAE_CPU', 'TVAE_GPU', 'FORGE_CPU'))+
+  xlab("sample size")
 
 ggplot(data = df %>% filter(model != "oracle") , aes(x = dataset, y = mean_process_time, color = `model and processing unit`)) + geom_line()+
   geom_ribbon(aes(ymin=mean_process_time-sd_process_time, ymax=mean_process_time+sd_process_time, fill = `model and processing unit`), 
               alpha=0.2, lty = "blank")+
   ggtitle("process time mean and sd, stratified adult data (5 rep.)")+
-  scale_x_continuous(trans='log10')+ theme_bw()+
-  scale_y_continuous(trans= 'log10')+
+ # scale_x_continuous(trans='log10')+ theme_bw()+
+#  scale_y_continuous(trans= 'log10')+
   ylab("process time")+
   xlab("n")
 
