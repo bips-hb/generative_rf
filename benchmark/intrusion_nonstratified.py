@@ -39,6 +39,11 @@ def f1_micro(*args):
   return f1_score(average = 'micro', *args)
 
 
+# define generative_ranger version in python 
+def gen_rf(real_data):
+    grf_syn_dat = generative_ranger(x_real = real_data, n_new = real_data.shape[0], oob = False, num_trees = 10, min_node_size = 5 )
+    return grf_syn_dat.astype(real_data.dtypes)
+    
 def synth_data(data_train, synthesizer):
     """
     Arguments:
@@ -104,7 +109,7 @@ subsample = 0.05 # use subsample of intrusion only
 
 # intrusion
 intrusion = load_tables(load_dataset('intrusion'))['intrusion']
-intrusion_train, intrusion_test = zip(*[train_test_split(intrusion, train_size= (394/(394+100))*subsample, test_size=(100/(394+100))*subsample)for i in rep])
+intrusion_train, intrusion_test = zip(*[train_test_split(intrusion, train_size= (394/(394+100))*subsample, test_size=(100/(394+100))*subsample) for i in rep])
 
 for i in rep:
   intrusion_train[i].name = 'intrusion'
