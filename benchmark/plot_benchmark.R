@@ -22,6 +22,7 @@ df =df %>% mutate(f1_1 = helper_fun(f1_none, first = T)) %>%
   group_by(dataset, model) %>% mutate(f1_1 = mean(f1_1), f1_2 = mean(f1_2), accuracy_score = mean(accuracy_score),
                                       f1_macro = mean(f1_macro), f1_micro = mean(f1_micro), r2_score = mean(r2_score))%>%
   select(- c(classifier, X, f1_none)) %>% distinct()
+# sd_f1_1 = sd(f1_1), sd_f1_2 = sd(f1_2), sd_accuracy_score = sd(accuracy_score)
 
 # individual plots
 # binary classification: adult, census, credit
