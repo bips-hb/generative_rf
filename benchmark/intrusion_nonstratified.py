@@ -82,7 +82,7 @@ def scores(data_train, data_test, list_of_classifiers, metric, synthesizer):
     syn_dat_res = syn_dat_res.append(res)
     return syn_dat_res
 
-rep = range(5)
+rep = range(3)
 
 def run_benchmark(training_data, test_data, classifiers, metrics, data_synthesizer, seed = 2022):
     np.random.seed(seed)
@@ -104,7 +104,7 @@ def run_grf_benchmark(training_data, test_data, classifiers, metrics, data_synth
 # get indices of train/test data sets for each data set
 ################################
 
-np.random.seed(2022)
+np.random.seed(2021)
 subsample = 0.05 # use subsample of intrusion only
 
 # intrusion
@@ -137,3 +137,9 @@ from sdv.tabular import TVAE
 intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusion_test, classifiers = intrusion_classifiers,
 metrics = intrusion_metrics, data_synthesizer= {"TVAE": TVAE()})
 pd.concat(intrusion_res).to_csv("TVAE_intrusion_nonstratified.csv")
+
+
+import sdgym 
+from sdgym.synthesizers import Identity
+
+scores = sdgym.run(synthesizers={"Identity":Identity}, datasets=['intrusion'])
