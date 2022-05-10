@@ -20,7 +20,8 @@ library(data.table)
 #' @examples
 #' generative_ranger(x_real = iris, n_new = 100)
 generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
-                              dist = "normal", num_trees = 10, min_node_size = 5, ...) {
+                              dist = "normal", num_trees = 10, min_node_size = 5, 
+                              cat_num = 10, ...) {
   
   # Convert to data.frame
   orig_colnames <- colnames(x_real)
@@ -35,6 +36,14 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   idx_logical <- sapply(x_real, is.logical)
   if (any(idx_logical)) {
     x_real[, idx_logical] <- as.data.frame(lapply(x_real[, idx_logical, drop = FALSE], as.factor))
+  }
+  
+  # Convert numerics with less than cat_num unique values to factor (if requested)
+  if (!is.null(cat_num)) {
+    idx_catnum <- sapply(x_real, function(x) {is.numeric(x) && length(unique(x)) <= cat_num})
+    if (any(idx_catnum)) {
+      x_real[, idx_catnum] <- as.data.frame(lapply(x_real[, idx_catnum, drop = FALSE], as.factor))
+    }
   }
   
   factor_cols <- sapply(x_real, is.factor)
@@ -152,6 +161,11 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   }
   if (any(idx_logical)) {
     data_new[, idx_logical] <- as.data.frame(lapply(data_new[, idx_logical, drop = FALSE], function(x) {x == "TRUE"}))
+  }
+  
+  # Convert numerics back (if requested)
+  if (!is.null(cat_num)) {
+    data_new[, idx_catnum] <- as.data.frame(lapply(data_new[, idx_catnum, drop = FALSE], function(x) {as.numeric(as.character(x))}))
   }
   
   # Use original column names
