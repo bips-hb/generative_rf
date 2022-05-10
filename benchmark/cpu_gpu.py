@@ -66,11 +66,11 @@ adult = load_tables(load_dataset('adult'))['adult']
 #########
 # for sample size benchmark, use
 #########
-subs_log = np.exp(np.linspace(np.log(1000), np.log(32561), 8))
-subs = [round(i) for i in subs_log]*5
-# sample subsets from data
-np.random.seed(2022)
-data_sub= [resample(adult, n_samples=subs[i], replace=False, stratify=adult['label']) for i in range(len(subs))] 
+#subs_log = np.exp(np.linspace(np.log(1000), np.log(32561), 8))
+#subs = [round(i) for i in subs_log]*5
+## sample subsets from data
+#np.random.seed(2022)
+#data_sub= [resample(adult, n_samples=subs[i], replace=False, stratify=adult['label']) for i in range(len(subs))] 
 
 def syn_time(data, synthesizer):
     """
@@ -89,25 +89,25 @@ def syn_time(data, synthesizer):
 ##########
 # for dimensionality benchmark, use
 ##########
-#np.random.seed(2022)
+np.random.seed(2022)
 ## adult dtypes: 6 times 'int64', 9 times 'object' (including 'label')
 ## adult continuous features:
-#adult_cont = adult.select_dtypes(include='int64')
+adult_cont = adult.select_dtypes(include='int64')
 ## adult categorical features: without 'label'
-#adult_cat = adult.select_dtypes(include='object').drop('label', axis=1)
+adult_cat = adult.select_dtypes(include='object').drop('label', axis=1)
 ## select one continous, one categorical and the label for subsets
-#rep = 5
-#subs = [2,4,6,8,10,12]*rep
-#data_sub = [pd.concat([adult_cont.sample(int(i/2), axis=1),adult_cat.sample(int(i/2), axis=1), adult['label']], axis=1) for i in subs]
+rep = 5
+subs = [2,4,6,8,10,12]*rep
+data_sub = [pd.concat([adult_cont.sample(int(i/2), axis=1),adult_cat.sample(int(i/2), axis=1), adult['label']], axis=1) for i in subs]
 
-#i = 0
-#while i < rep:
-#  data_sub.append(adult)  # add full data set
-#  subs.append(14)
-#  i = i+1
+i = 0
+while i < rep:
+  data_sub.append(adult)  # add full data set
+  subs.append(14)
+  i = i+1
 
 # redefine output -> return (data.shape[1] -1) for number of features excluding 'label'
-#def syn_time(data, synthesizer):
+def syn_time(data, synthesizer):
     """
     Args: 
     - data: real data to train data synthesizer on
