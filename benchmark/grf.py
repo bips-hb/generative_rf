@@ -26,7 +26,7 @@ r.source('/home/blesch/generative_RF/generative_rf/generative_ranger.R')
 generative_ranger = robjects.globalenv['generative_ranger']
 pandas2ri.activate()
 doPar = rpackages.importr('doParallel')
-doPar.registerDoParallel(40)
+doPar.registerDoParallel(10)
 
 
 

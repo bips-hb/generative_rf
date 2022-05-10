@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sdgym.datasets import load_dataset
 from sdgym.datasets import load_tables
 from sklearn.metrics import f1_score, accuracy_score, r2_score
-from sdv.metrics.tabular import BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryLogisticRegression,BinaryMLPClassifier, LinearRegression, MLPRegressor
+from sdv.metrics.tabular import BinaryDecisionTreeClassifier,BinaryAdaBoostClassifier,BinaryLogisticRegression,BinaryMLPClassifier, MulticlassDecisionTreeClassifier, MulticlassMLPClassifier
 import torch
 
 def oracle(): 
@@ -95,7 +95,7 @@ covtype = load_tables(load_dataset('covtype'))['covtype']
 covtype_train, covtype_test = zip(*[train_test_split(covtype, test_size=100/(481+100), stratify=covtype['label'])for i in rep])
 for i in rep:
   covtype_train[i].name = 'covtype'
-covtype_classifiers = [BinaryDecisionTreeClassifier,BinaryMLPClassifier]
+covtype_classifiers = [MulticlassDecisionTreeClassifier,MulticlassMLPClassifier]
 covtype_metrics = [accuracy_score, f1_micro, f1_macro]
 
 # credit
@@ -111,7 +111,7 @@ intrusion = load_tables(load_dataset('intrusion'))['intrusion']
 intrusion_train, intrusion_test = zip(*[train_test_split(intrusion, test_size=100/(394+100), stratify=intrusion['label'])for i in rep])
 for i in rep:
   intrusion_train[i].name = 'intrusion'
-intrusion_classifiers = [BinaryDecisionTreeClassifier,BinaryMLPClassifier]
+intrusion_classifiers = [MulticlassDecisionTreeClassifier,MulticlassMLPClassifier]
 intrusion_metrics = [accuracy_score, f1_micro, f1_macro] 
 
 # mnist12
@@ -119,7 +119,7 @@ mnist12 = load_tables(load_dataset('mnist12'))['mnist12']
 mnist12_train, mnist12_test = zip(*[train_test_split(mnist12, test_size=10/(60+10), stratify=mnist12['label'])for i in rep])
 for i in rep:
   mnist12_train[i].name = 'mnist12'
-mnist12_classifiers = [BinaryDecisionTreeClassifier,BinaryLogisticRegression,BinaryMLPClassifier]
+mnist12_classifiers = [MulticlassDecisionTreeClassifier,MulticlassMLPClassifier]
 mnist12_metrics = [accuracy_score, f1_micro, f1_macro]
 
 # mnist28
@@ -127,5 +127,5 @@ mnist28 = load_tables(load_dataset('mnist28'))['mnist28']
 mnist28_train, mnist28_test = zip(*[train_test_split(mnist28, test_size=10/(60+10), stratify=mnist28['label'])for i in rep])
 for i in rep:
   mnist28_train[i].name = 'mnist28'
-mnist28_classifiers = [BinaryDecisionTreeClassifier,BinaryLogisticRegression,BinaryMLPClassifier]
+mnist28_classifiers = [MulticlassDecisionTreeClassifier,MulticlassMLPClassifier]
 mnist28_metrics = [accuracy_score, f1_micro, f1_macro]
