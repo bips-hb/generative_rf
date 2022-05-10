@@ -3,15 +3,15 @@ library(data.table)
 library(batchtools)
 library(ggplot2)
 library(ggsci)
+library(scales)
 
 set.seed(42)
 
-
 # Simulation parameters ---------------------------------------------------
 repls <- 20
-n <- round(10^(seq(2, 4, length.out = 10)))
+n <- 10000
 p <- 10 
-effect_cols <- 5
+effect_cols <- seq(0, p, by = 2)
 cov_base <- .5
 num_trees <- 10
 min_node_size <- 5
@@ -20,7 +20,7 @@ dist <- c("normal", "pwc")
 beta <- 1
 
 # Registry ----------------------------------------------------------------
-reg_name <- "kl_by_n"
+reg_name <- "kl_by_effects"
 reg_dir <- file.path("registries", reg_name)
 unlink(reg_dir, recursive = TRUE)
 makeExperimentRegistry(file.dir = reg_dir, 
@@ -34,16 +34,7 @@ myprob <- function(job, data, n, p, cov_base, effect_cols, beta) {
   
   # Correlation matrix
   mu <- rep(0, p)
-  if (effect_cols %in% c(0,p)) {
-    sigma <- toeplitz(cov_base^(0:(p-1)))
-  } else {
-    sigma_sub1 <- toeplitz(cov_base^(0:(effect_cols-1)))
-    sigma_sub2 <- toeplitz(cov_base^(0:(p-effect_cols-1)))
-    sigma_null1 <- matrix(0, nrow = effect_cols, ncol = p-effect_cols)
-    sigma_null2 <- matrix(0, nrow = p-effect_cols, ncol = effect_cols)
-    sigma <- rbind(cbind(sigma_sub1, sigma_null1), 
-                   cbind(sigma_null2, sigma_sub2))
-  }
+  sigma <- toeplitz(cov_base^(0:(p-1)))
   
   # Create data
   x <- matrix(Rfast::rmvnorm(n = n, mu = mu, sigma = sigma), ncol = p,
@@ -64,7 +55,7 @@ run_genrf <- function(data, job, instance, ...) {
   # Generate synthetic data
   mod <- genrf$new(instance$data,  ...)
   x_new <- mod$sample(nrow(instance$data))
-
+  
   # Calculate KL divergence
   est <- Rfast::mvnorm.mle(as.matrix(x_new[, -1]))
   monomvn::kl.norm(mu1 = instance$mu, S1 = instance$sigma,
@@ -103,7 +94,6 @@ algo_design <- list(genrf = expand.grid(num_trees = num_trees,
 addExperiments(prob_design, algo_design, repls = repls)
 summarizeExperiments()
 
-
 # Test jobs -----------------------------------------------------------
 #testJob(id = 1)
 
@@ -141,14 +131,17 @@ res_mean[, Method := factor(paste(algorithm, dist, sep = "_"),
 # Save mean result
 saveRDS(res_mean, paste0(reg_name, "_mean.Rds"))
 
-ggplot(res_mean, aes(x = n, y = KL, col = Method)) + 
+ggplot(res_mean, aes(x = effect_cols, y = KL, col = Method)) + 
   geom_line() + 
-  geom_hline(yintercept = 0) + 
-  xlab("Sample size") + 
+  #geom_hline(yintercept = 0) + 
+  xlab("Number of informative features") + 
   ylab("KL divergence") + 
-  scale_x_continuous(trans='log10') + 
   scale_color_npg() + 
-  theme_bw()
+  scale_x_continuous(breaks = pretty_breaks()) + 
+  scale_y_continuous(trans = 'log10', breaks = c(.2, .5, 1)) + 
+  theme_bw() + 
+  theme(legend.text = element_text(lineheight = .8), 
+        legend.key.height=unit(22, "pt"))
 
 ggsave(paste0(reg_name, ".pdf"), width = 5, height = 4)
 
