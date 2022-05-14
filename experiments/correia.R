@@ -3,10 +3,10 @@ library(ranger)
 library(foreach)
 library(data.table)
 
-#' Generative Random Forests
+#' Supervised Generative Random Forests (Correia et al.)
 #'
 #' @param x_real Original data (data.frame).
-#' @param x_synth Naive synthetic data, if NULL will be sampled from marginals.
+#' @param label Name of the label column in x_real.
 #' @param n_new Number of synthetic observations to sample.
 #' @param oob Use only out-of-bag data to calculate leaf probabilities?
 #' @param dist Distribution to fit in terminal nodes to continuous data. Currently implemented: "normal", "exponential", "geometric", "lognormal", "Poisson", "pwc" (piecewise constant). 
@@ -19,7 +19,7 @@ library(data.table)
 #'
 #' @examples
 #' generative_ranger(x_real = iris, n_new = 100)
-generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE, 
+correia <- function(x_real, label, n_new, oob = FALSE, 
                               dist = "normal", num_trees = 10, min_node_size = 5, 
                               cat_num = 10, ...) {
   
@@ -49,17 +49,8 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   factor_cols <- sapply(x_real, is.factor)
   factor_col_names <- names(factor_cols)[factor_cols]
   
-  # If no synthetic data provided, sample from marginals
-  x_synth <- as.data.frame(lapply(x_real, function(x) {
-    sample(x, length(x), replace = TRUE)
-  }))
-  
-  # Merge real and synthetic data
-  dat <- rbind(data.frame(y = 0, x_real), 
-               data.frame(y = 1, x_synth))
-  
   # Fit ranger to both data
-  rf <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, num.trees = num_trees, min.node.size = min_node_size, ...)
+  rf <- ranger(data = x_real, dependent.variable.name = label, keep.inbag = TRUE, num.trees = num_trees, min.node.size = min_node_size, ...)
   
   # Get terminal nodes for all observations
   pred <- predict(rf, x_real, type = "terminalNodes")$predictions

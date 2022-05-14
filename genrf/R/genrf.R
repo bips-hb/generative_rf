@@ -13,12 +13,13 @@ genrf <- R6::R6Class(
   classname = "genrf",
   public = list(
     # Create and fit a generative random forest
-    initialize = function(x, oob = FALSE, dist = "normal", ...) {
+    initialize = function(x, oob = FALSE, dist = "normal", num_trees = 10, min_node_size = 5, ...) {
       # Convert input to data.frame
       private$orig_colnames <- colnames(x)
       x_real <- data.frame(x)
       private$p <- ncol(x_real)
       private$dist <- dist
+      private$num_trees <- num_trees
 
       # Convert chars and logicals to factors
       private$idx_char <- sapply(x_real, is.character)
@@ -45,11 +46,10 @@ genrf <- R6::R6Class(
                    data.frame(y = 1, x_synth))
 
       # Fit ranger to both data
-      rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, ...)
+      rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, num.trees = num_trees, min.node.size = min_node_size, ...)
 
       # Get terminal nodes for all observations
       pred <- predict(rf, x_real, type = "terminalNodes")$predictions
-      private$num_trees <- ncol(pred)
 
       # If OOB, use only OOB trees
       if (oob) {
@@ -76,6 +76,8 @@ genrf <- R6::R6Class(
             long[, list(mu = mean(value), s2 = var(value)), by = .(tree, nodeid, variable)]
             long[, alpha := ((1 - mu) / s2 - 1 / mu) * mu^2]
             long[, beta := alpha * (1 / mu - 1)]
+          } else if (dist == "pwc") {
+            long[, list(mean = mean(value)), by = .(tree, nodeid, variable)]
           } else {
             long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, nodeid, variable)]
           }
@@ -124,14 +126,14 @@ genrf <- R6::R6Class(
 
         if (private$factor_cols[j]) {
           # Factor columns: Multinomial distribution
-          obs_probs[variable == colname, sample(value, 1, prob = N), by = obs]$V1
+          obs_probs[variable == colname, droplevels(sample(value, 1, prob = N)), by = obs]$V1
         } else {
           # Continuous columns: Match estimated distribution parameters with r...() function
           if (private$dist == "normal") {
             rnorm(n = n, mean = obs_params[variable == colname, mean],
                   sd = obs_params[variable == colname, sd])
           } else if (private$dist == "beta") {
-            rbeta(n = n, shape1 = obs_params[variable == colname, alpha], 
+            rbeta(n = n, shape1 = obs_params[variable == colname, alpha],
                   shape2 = obs_params[variable == colname, beta])
           } else if (private$dist == "exponential") {
             rexp(n = n, obs_params[variable == colname, rate])
@@ -142,6 +144,8 @@ genrf <- R6::R6Class(
                    sdlog = obs_params[variable == colname, sdlog])
           } else if (private$dist == "Poisson") {
             rpois(n = n, obs_params[variable == colname, lambda])
+          } else if (private$dist == "pwc") {
+            rep(obs_params[variable == colname, mean], n)
           } else {
             stop("Unknown distribution.")
           }
