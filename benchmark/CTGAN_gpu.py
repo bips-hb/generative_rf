@@ -7,4 +7,4 @@ exec(open("cpu_gpu.py").read())
 
 from sdv.tabular import CTGAN
 
-pd.concat(run_sub(synthesizer_dict = {"CTGAN": CTGAN(cuda=True)})).to_csv("CTGAN_gpu.csv")
+pd.concat(run_sub(synthesizer_name = "CTGAN_gpu")).to_csv("CTGAN_gpu.csv")

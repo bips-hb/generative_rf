@@ -35,20 +35,39 @@ def synth_data(data_train, synthesizer):
         synthesizer.fit(data = data_train)
         return synthesizer.sample(data_train.shape[0])  
 
-def run_sub(synthesizer_dict, R_seed = False):
+def run_sub(synthesizer_name, R_seed = False):
     np.random.seed(2022)
     torch.manual_seed(2022)
     if R_seed:
         base = rpackages.importr('base')
         base.set_seed(2022,kind = "L'Ecuyer-CMRG")
         print("R seed set")
-    res = (syn_time(data = data_sub[i], synthesizer =  synthesizer_dict)  for i in range(len(subs)))
+    my_syn = []
+    i = 0
+    while i < len(subs):
+      if synthesizer_name == "TVAE_gpu":
+        my_syn.append({"TVAE": TVAE(cuda=True)})
+      elif synthesizer_name == "TVAE_cpu":
+        my_syn.append({"TVAE": TVAE(cuda=False)})
+      elif synthesizer_name == "CTGAN_gpu":
+        my_syn.append({"TVAE": CTGAN(cuda=True)})
+      elif synthesizer_name == "CTGAN_cpu":
+        my_syn.append({"TVAE": CTGAN(cuda=False)})
+      else: 
+        print("please specify synthesizer name")
+      i=i+1
+    res = (syn_time(data = data_sub[i], synthesizer =  my_syn[i]) for i in range(len(subs)))
     return list(res)
+
   
-def run_CTGAN_cpu_sub(range_i, synthesizer_dict):
+def run_CTGAN_cpu_sub(range_i):
     np.random.seed(2022)
     torch.manual_seed(2022)
-    res = (syn_time(data = data_sub[i], synthesizer =  synthesizer_dict) for i in range_i)
+    my_syn = []
+    i = 0
+    while i < len(subs):
+      my_syn.append({"CTGAN": CTGAN(cuda=False)})
+    res = (syn_time(data = data_sub[i], synthesizer =  my_syn[i]) for i in range_i)
     return list(res)
 
 
@@ -123,14 +142,3 @@ def syn_time(data, synthesizer):
 
 
 
-
-##########
-# worst case runtime adult subsample benchmark
-#CTGAN cpu 45 min
-#TVAE cpu 5,5 min
-#grf cpu 0,5 min
-#CTGAN gpu 5 min 
-#TVAE gpu 2 min
-# -> 1h per run
-# -> 10 subsample sizes
-# -> 5 rep
