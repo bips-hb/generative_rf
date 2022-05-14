@@ -108,12 +108,14 @@ genrf <- R6::R6Class(
 
       # Get distributions parameters for each new obs.
       if (any(!private$factor_cols)) {
-        obs_params <- merge(sampled_trees_nodes, private$params, by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
+        obs_params <- merge(sampled_trees_nodes, private$params, 
+                            by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
       }
 
       # Get probabilities for each new obs.
       if (any(private$factor_cols)) {
-        obs_probs <- merge(sampled_trees_nodes, private$class_probs, by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
+        obs_probs <- merge(sampled_trees_nodes, private$class_probs, 
+                           by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
       }
 
       # Sample new data from mixture distribution over trees
@@ -148,10 +150,14 @@ genrf <- R6::R6Class(
 
       # Convert chars and logicals back
       if (any(private$idx_char)) {
-        data_new[, private$idx_char] <- as.data.frame(lapply(data_new[, private$idx_char, drop = FALSE], as.character))
+        data_new[, private$idx_char] <- as.data.frame(
+          lapply(data_new[, private$idx_char, drop = FALSE], as.character)
+        )
       }
       if (any(private$idx_logical)) {
-        data_new[, private$idx_logical] <- as.data.frame(lapply(data_new[, private$idx_logical, drop = FALSE], function(x) {x == "TRUE"}))
+        data_new[, private$idx_logical] <- as.data.frame(
+          lapply(data_new[, private$idx_logical, drop = FALSE], function(x) {x == "TRUE"})
+        )
       }
 
       # Use original column names
