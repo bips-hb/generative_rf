@@ -7,4 +7,4 @@ exec(open("cpu_gpu.py").read())
 
 from sdv.tabular import TVAE
 
-pd.concat(run_sub(synthesizer_dict = {"TVAE": TVAE(cuda=True)})).to_csv("TVAE_gpu.csv")
+pd.concat(run_sub(synthesizer_name = "TVAE_gpu")).to_csv("TVAE_gpu.csv")

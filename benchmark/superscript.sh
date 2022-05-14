@@ -1,9 +1,4 @@
-python oracle.py
-python grf.py
-python TVAE.py
-python CTGAN.py
 python grf_cpu.py
-python oracle_cpu.py
 python TVAE_gpu.py
 python TVAE_cpu.py
 python CTGAN_gpu.py
