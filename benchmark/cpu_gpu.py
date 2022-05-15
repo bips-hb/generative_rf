@@ -67,6 +67,7 @@ def run_CTGAN_cpu_sub(range_i):
     i = 0
     while i < len(subs):
       my_syn.append({"CTGAN": CTGAN(cuda=False)})
+      i = i+1
     res = (syn_time(data = data_sub[i], synthesizer =  my_syn[i]) for i in range_i)
     return list(res)
 
