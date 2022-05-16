@@ -116,32 +116,3 @@ res[, KL := result.1]
 
 # Save result
 saveRDS(res, paste0(reg_name, ".Rds"))
-
-# Load results
-res <- readRDS(paste0(reg_name, ".Rds"))
-
-# Plot KL by n ------------------------------------------------------------
-res_mean <- res[, mean(KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
-res_mean[, KL := V1]
-res_mean[, Dimensionality := as.factor(p)]
-res_mean[, Method := factor(paste(algorithm, dist, sep = "_"), 
-                            levels = c("correia_pwc", "genrf_pwc", "correia_normal", "genrf_normal"), 
-                            labels = c("Piecewise constant\n(supervised)", "Piecewise constant\n(unsupervised)", "GeFs (Correia et al.)", "FORGE"))]
-
-# Save mean result
-saveRDS(res_mean, paste0(reg_name, "_mean.Rds"))
-
-ggplot(res_mean, aes(x = effect_cols, y = KL, col = Method)) + 
-  geom_line() + 
-  #geom_hline(yintercept = 0) + 
-  xlab("Number of informative features") + 
-  ylab("KL divergence") + 
-  scale_color_npg() + 
-  scale_x_continuous(breaks = pretty_breaks()) + 
-  scale_y_continuous(trans = 'log10', breaks = c(.2, .5, 1)) + 
-  theme_bw() + 
-  theme(legend.text = element_text(lineheight = .8), 
-        legend.key.height=unit(22, "pt"))
-
-ggsave(paste0(reg_name, ".pdf"), width = 5, height = 4)
-

@@ -6,7 +6,6 @@ library(ggsci)
 
 set.seed(42)
 
-
 # Simulation parameters ---------------------------------------------------
 repls <- 20
 n <- 10000
@@ -35,16 +34,7 @@ myprob <- function(job, data, n, p, cov_base, beta) {
   
   # Correlation matrix
   mu <- rep(0, p)
-  if (effect_cols %in% c(0,p)) {
-    sigma <- toeplitz(cov_base^(0:(p-1)))
-  } else {
-    sigma_sub1 <- toeplitz(cov_base^(0:(effect_cols-1)))
-    sigma_sub2 <- toeplitz(cov_base^(0:(p-effect_cols-1)))
-    sigma_null1 <- matrix(0, nrow = effect_cols, ncol = p-effect_cols)
-    sigma_null2 <- matrix(0, nrow = p-effect_cols, ncol = effect_cols)
-    sigma <- rbind(cbind(sigma_sub1, sigma_null1), 
-                   cbind(sigma_null2, sigma_sub2))
-  }
+  sigma <- toeplitz(cov_base^(0:(p-1)))
   
   # Create data
   x <- matrix(Rfast::rmvnorm(n = n, mu = mu, sigma = sigma), ncol = p,
@@ -129,7 +119,7 @@ res[, KL := result.1]
 saveRDS(res, paste0(reg_name, ".Rds"))
 
 # Load results
-res <- readRDS(paste0(reg_name, ".Rds"))
+#res <- readRDS(paste0(reg_name, ".Rds"))
 
 # Plot KL by n ------------------------------------------------------------
 res_mean <- res[, mean(KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, beta)]
@@ -140,7 +130,7 @@ res_mean[, Method := factor(paste(algorithm, dist, sep = "_"),
                             labels = c("Piecewise constant\n(supervised)", "Piecewise constant\n(unsupervised)", "GeFs (Correia et al.)", "FORGE"))]
 
 # Save mean result
-saveRDS(res_mean, paste0(reg_name, "_mean.Rds"))
+#saveRDS(res_mean, paste0(reg_name, "_mean.Rds"))
 
 ggplot(res_mean, aes(x = Dimensionality, y = KL, col = Method)) + 
   geom_line() + 
@@ -150,5 +140,5 @@ ggplot(res_mean, aes(x = Dimensionality, y = KL, col = Method)) +
   scale_color_npg() + 
   theme_bw()
 
-ggsave(paste0(reg_name, ".pdf"), width = 5, height = 4)
+#ggsave(paste0(reg_name, ".pdf"), width = 5, height = 4)
 
