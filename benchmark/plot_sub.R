@@ -1,7 +1,7 @@
 library(dplyr)
 library(ggplot2)
 library(reshape2)
-files <- c(list.files(path = "./dimensionality_benchmark_results",
+files <- c(list.files(path = "./subsample_benchmark_results",
                       pattern = ".*\\.csv$",
                       all.files = FALSE, full.names = TRUE, recursive = FALSE, ignore.case = TRUE,
                       include.dirs = FALSE, no.. = FALSE))
