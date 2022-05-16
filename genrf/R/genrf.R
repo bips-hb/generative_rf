@@ -145,8 +145,8 @@ genrf <- R6::R6Class(
           } else if (private$dist == "Poisson") {
             rpois(n = n, obs_params[variable == colname, lambda])
           } else if (private$dist == "pwc") {
-            runif(n = n, min = obs_param[variable == colname, min], 
-                  max = obs_param[variable == colname, max])
+            runif(n = n, min = obs_params[variable == colname, min], 
+                  max = obs_params[variable == colname, max])
           } else {
             stop("Unknown distribution.")
           }
