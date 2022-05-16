@@ -50,9 +50,9 @@ def run_sub(synthesizer_name, R_seed = False):
       elif synthesizer_name == "TVAE_cpu":
         my_syn.append({"TVAE": TVAE(cuda=False)})
       elif synthesizer_name == "CTGAN_gpu":
-        my_syn.append({"TVAE": CTGAN(cuda=True)})
+        my_syn.append({"CTGAN": CTGAN(cuda=True)})
       elif synthesizer_name == "CTGAN_cpu":
-        my_syn.append({"TVAE": CTGAN(cuda=False)})
+        my_syn.append({"CTGAN": CTGAN(cuda=False)})
       else: 
         print("please specify synthesizer name")
       i=i+1
