@@ -4,7 +4,12 @@ except:
     pass
 
 exec(open("benchmark_individual.py").read())
-from sdv.tabular import TVAE
 
-def f1_none(*args):
-  return f1_score(average = 'binary', *args)
+for i in range(5):
+    print(adult_test[i]['label'].iloc[0])
+
+for i in range(5):
+    print(census_test[i]['label'].iloc[0])
+
+for i in range(5):
+    print(credit_test[i]['label'].iloc[0])
