@@ -99,7 +99,7 @@ plt_dimensionality = ggplot(data = df %>% filter(model != "oracle") , aes(x = da
   scale_x_continuous(breaks = seq(2,14,2), minor_breaks = c() )+
   #scale_y_continuous(trans= 'log10')+
   #scale_color_npg()+
-  #ylab("Time (sec)")+
+  ylab(" ")+
   theme_bw()+
   theme(legend.position = 'right')+
   scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), 
@@ -115,7 +115,7 @@ plt_dimensionality_process_time <- ggplot(data = df %>% filter(model != "oracle"
   geom_point(aes(shape= `model and processing unit`) )+
   #scale_x_continuous(trans='log10')+
   #scale_y_continuous(trans= 'log10')+
-  #ylab("Process time (sec)")+
+  ylab("")+
   theme_bw()+
   theme(legend.position = 'right')+
   scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), 
