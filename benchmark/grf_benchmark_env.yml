@@ -198,4 +198,3 @@ dependencies:
     - typing-extensions==4.2.0
     - urllib3==1.26.9
     - xlsxwriter==3.0.3
-prefix: /home/blesch/miniconda3/envs/renv
