@@ -4,12 +4,12 @@ library(batchtools)
 library(ggplot2)
 library(ggsci)
 
-set.seed(42)
+#set.seed(42)
 
 # Simulation parameters ---------------------------------------------------
-repls <- 20
+repls <- 3#20
 n <- 10000
-p <- round(10^(seq(1, 3, length.out = 10)))
+p <- round(10^(seq(1, 2, length.out = 10)))
 #effect_cols <- 5
 cov_base <- .5
 num_trees <- 10
@@ -19,7 +19,7 @@ dist <- c("normal", "pwc")
 beta <- 1
 
 # Registry ----------------------------------------------------------------
-reg_name <- "kl_by_n"
+reg_name <- "kl_by_p"
 reg_dir <- file.path("registries", reg_name)
 unlink(reg_dir, recursive = TRUE)
 makeExperimentRegistry(file.dir = reg_dir, 
@@ -29,7 +29,7 @@ makeExperimentRegistry(file.dir = reg_dir,
 # Problems -----------------------------------------------------------
 myprob <- function(job, data, n, p, cov_base, beta) {
   # Effects 
-  effect_cols <- round(p/2)
+  effect_cols <- round(p/5)
   beta <- c(rep(beta, effect_cols), rep(0, p-effect_cols))
   
   # Correlation matrix
@@ -53,7 +53,7 @@ addProblem(name = "myprob", fun = myprob, seed = 43)
 # Algorithms -----------------------------------------------------------
 run_genrf <- function(data, job, instance, ...) {
   # Generate synthetic data
-  mod <- genrf$new(instance$data,  ...)
+  mod <- genrf$new(instance$data, ...)
   x_new <- mod$sample(nrow(instance$data))
 
   # Calculate KL divergence
@@ -116,7 +116,7 @@ res <-  flatten(ijoin(reduceResultsDataTable(), getJobPars()))
 res[, KL := result.1]
 
 # Save result
-saveRDS(res, paste0(reg_name, ".Rds"))
+#saveRDS(res, paste0(reg_name, ".Rds"))
 
 # Load results
 #res <- readRDS(paste0(reg_name, ".Rds"))
@@ -124,7 +124,7 @@ saveRDS(res, paste0(reg_name, ".Rds"))
 # Plot KL by n ------------------------------------------------------------
 res_mean <- res[, mean(KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, beta)]
 res_mean[, KL := V1]
-res_mean[, Dimensionality := as.factor(p)]
+res_mean[, Dimensionality := p]
 res_mean[, Method := factor(paste(algorithm, dist, sep = "_"), 
                             levels = c("correia_pwc", "genrf_pwc", "correia_normal", "genrf_normal"), 
                             labels = c("Piecewise constant\n(supervised)", "Piecewise constant\n(unsupervised)", "GeFs (Correia et al.)", "FORGE"))]
@@ -134,10 +134,11 @@ res_mean[, Method := factor(paste(algorithm, dist, sep = "_"),
 
 ggplot(res_mean, aes(x = Dimensionality, y = KL, col = Method)) + 
   geom_line() + 
-  geom_hline(yintercept = 0) +  
+  #geom_hline(yintercept = 0) +  
   ylab("KL divergence") + 
   scale_x_continuous(trans='log10') + 
-  scale_color_npg() + 
+  scale_y_continuous(trans='log10') + 
+  scale_color_nejm() + 
   theme_bw()
 
 #ggsave(paste0(reg_name, ".pdf"), width = 5, height = 4)
