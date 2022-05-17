@@ -87,7 +87,7 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
       if (dist == "normal") {
         long[, list(mean = mean(value), sd = sd(value)), by = .(tree, nodeid, variable)]
       } else if (dist == "pwc") {
-        long[, list(mean = mean(value)), by = .(tree, nodeid, variable)]
+        long[, list(min = min(value), max = max(value)), by = .(tree, nodeid, variable)]
       } else {
         long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, nodeid, variable)]
       }
@@ -148,7 +148,8 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
       } else if (dist == "Poisson") {
         rpois(n = n_new, obs_params[variable == colname, lambda])
       } else if (dist == "pwc") {
-        rep(obs_params[variable == colname, mean], n_new)
+        rnorm(n = n_new, min = obs_params[variable == colname, min], 
+              max = obs_params[variable == colname, max])
       } else {
         stop("Unknown distribution.")
       }
