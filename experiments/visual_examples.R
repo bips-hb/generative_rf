@@ -50,8 +50,5 @@ ggplot(df, aes(x = X, y = Y, color = Class, shape = Class)) +
   scale_color_npg()
 ggsave(paste0("examples", ".pdf"), width = 8, height = 4)
 
-# # Plot pairs
-# library(GGally)
-# ggpairs(df, columns = 2:3, ggplot2::aes(col = Data, shape = Data)) + 
-#   theme_bw()
+
 
