@@ -130,6 +130,6 @@ plt_dimensionality_process_time <- ggplot(data = df %>% filter(model != "oracle"
 plot_grid(plt_samplesize, plt_dimensionality, ncol = 2, rel_widths = c(.41, .59),rel_heights = c(.5, .5), labels = "AUTO", label_x = c(.06, 0))
 ggsave("time.pdf", width = 8, height = 3)
 
-plot_grid(plt_samplesize_process_time, plt_dimensionality_process_time, ncol = 2, rel_widths = c(.42, .58),rel_heights = c(.5, .5), labels = "AUTO", label_x = c(.06, 0))
+plot_grid(plt_samplesize_process_time, plt_dimensionality_process_time, ncol = 2, rel_widths = c(.41, .59),rel_heights = c(.5, .5), labels = "AUTO", label_x = c(.06, 0))
 ggsave("process_time.pdf", width = 8, height = 3)
 
