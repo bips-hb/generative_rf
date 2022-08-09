@@ -1,24 +1,8 @@
 # Load libraries
 library(data.table)
 library(ranger)
-library(foreach)
-
-# Split function
-part <- function(x_real) {
-  # Synthesize
-  x_synth <- as.data.frame(lapply(x_real, function(x) {
-    sample(x, nrow(x_real), replace = TRUE)
-  }))
-  dat <- rbind(data.table(y = 1, x_real),
-               data.table(y = 0, x_synth))
-  # Fit
-  f <- ranger(y ~ ., dat, classification = TRUE, num.trees = 1, max.depth = 1,
-              replace = FALSE, sample.fraction = 1)
-  # Evaluate
-  p <- sum(dat$y == predict(f, dat)$predictions) / (2 * nrow(x_real))
-  gini <- 4 * p * (1 - p) # Doubling so max = 1
-  return(list('f' = f, 'gini' = gini))
-}
+library(doMC)
+registerDoMC(8)
 
 # Adversarial RF function
 adversarial_rf <- function(
@@ -31,60 +15,62 @@ adversarial_rf <- function(
   # Prelimz
   n <- nrow(x)
   cells <- list(1:n)
+  #phi <- list(0)
+  h <- 0
   cells_final <- list()
-  a <- cells[[1]]
-  gini <- 0
+  #phi_final <- list()
+  h_final <- double()
   # Tree growing function
   tree_grow <- function(b) {
     x_tmp <- x[sample(n, replace = TRUE), ]
     while (length(cells) > 0) {
       a <- cells[[1]]
-      if (length(a) < min_node_size | gini >= 1 - delta) {
-        cells[[1]] <- NULL
+      if (length(a) < min_node_size | h[1] >= 1 - delta) {
         cells_final[[length(cells_final) + 1]] <- a
+        #phi_final[[length(phi_final) + 1]] <- phi[[1]]
+        h_final[length(h_final) + 1] <- h[1]
+        cells <- cells[-1]
+        h <- h[-1]
       } else {
         n_a <- length(a)
         x_a <- x_tmp[a, ]
-        splt <- part(x_a)
-        gini <- splt$gini
-        node_ids <- c(predict(splt$f, x_a, type = 'terminalNodes')$predictions)
-        cells <- c(cells, split(a, node_ids))
-        cells[[1]] <- NULL
+        # Synthesize
+        x_synth <- as.data.frame(lapply(x_a, function(x) {
+          sample(x, nrow(x_a), replace = TRUE)
+        }))
+        dat <- rbind(data.table(y = 1, x_a),
+                     data.table(y = 0, x_synth))
+        # Fit
+        f <- ranger(y ~ ., dat, classification = TRUE, num.trees = 1, 
+                    max.depth = 1, replace = FALSE, sample.fraction = 1)
+        # Evaluate, append
+        dat[, node_id := predict(f, dat, type='terminalNodes')$predictions]
+        if (dat[, sum(node_id)] == 0) {
+          h[1] <- 1
+        } else {
+          p1 <- dat[node_id == 1, sum(y) / .N]
+          p2 <- dat[node_id == 2, sum(y) / .N]
+          h <- c(h[-1], 4 * p1 * (1 - p1), 4 * p2 * (1 - p2))
+          cells <- c(cells[-1], split(a, dat[y == 1, node_id]))
+          #phi <- c(phi, BLAH)
+        }
       }
     }
-    return(cells_final)
+    n_leaves <- length(cells_final)
+    q <- sapply(1:n_leaves, function(l) length(cells_final[[l]]) / n)
+    out <- data.table('tree' = b, 'leaf' = 1:n_leaves, 
+                      'q' = q, 'loss' = 1 - h_final)
+    return(out)
   }
   # Merge trees, export results
-  f <- foreach(bb = 1:num_trees) %do% tree_grow(bb)
+  f <- foreach(bb = 1:num_trees, .combine = rbind) %dopar% tree_grow(bb)
   return(f)
 }
 
-# Train a FORDE model
-forde_trn <- function(f, x) {
-  
-}
-
-# FORDE test
-forde_tst <- function(forde, x) {
-  
-}
-
-# FORGE
-forge <- function(forde, n) {
-  
-}
-
-
-
-
-
-
-
-
-
-
-
-
+# Spot check
+data(iris)
+f <- arf(iris)
+f[, sum(q * loss) / max(tree)]
 
 
 
