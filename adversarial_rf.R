@@ -117,7 +117,8 @@ adversarial_rf <- function(
   return(f)
 }
 
-forge <- function(adv_rf, n_out, trunc = FALSE) {
+# Data synthesis function
+forge <- function(adv_rf, n_out, trunc = TRUE) {
   df_cnt <- df_cat <- NULL
   # Sample target leaves
   leaves <- unique(adv_rf[, .(tree, leaf, cvg)])
@@ -155,6 +156,193 @@ forge <- function(adv_rf, n_out, trunc = FALSE) {
   out <- cbind(df_cnt, df_cat)
   return(out)
 }
+
+# Density estimation function
+forde <- function(adv_rf, x_new) {
+  
+}
+
+
+
+
+
+# Spot check
+data(iris)
+f <- adversarial_rf(iris)
+f[, sum(q * loss) / max(tree)]
+
+# Loss as a function of sample size, dimensionality, and autocorrelation
+fn <- function(i, n, d, rho, min_n) {
+  #n <- 1000
+  #d <- 10
+  #rho <- 0.5
+  mu <- rep(0, d)
+  sigma <- toeplitz(rho^(0:(d - 1)))
+  x <- matrix(Rfast::rmvnorm(n = n, mu = mu, sigma = sigma), ncol = d,
+              dimnames = list(NULL, paste0('x', seq_len(d))))
+  f <- adversarial_rf(x, min_node_size = min_n)
+  loss <- f[, sum(q * loss) / max(tree)]
+  out <- data.table(
+    'i' = i, 'n' = n, 'd' = d, 'rho' = rho, 'min_n' = min_n, 'loss' = loss
+  )
+  return(out)
+}
+res <- foreach(nn = c(100, 200, 400, 800), .combine = rbind) %:%
+  foreach(dd = c(4, 8, 16, 32), .combine = rbind) %:%
+  foreach(rr = c(0, 0.25, 0.5, 0.75), .combine = rbind) %:%
+  foreach(mins = c(5, 10, 15, 20), .combine = rbind) %:%
+  foreach(ii = 1:10, .combine = rbind) %dopar%
+  fn(ii, nn, dd, rr, mins)
+
+
+
+
+
+library(ggplot2)
+ggplot(res, aes(n, loss)) + 
+  geom_point() + 
+  geom_smooth(method = 'lm') + 
+  scale_x_log10() + 
+  theme_bw()
+
+ggplot(res, aes(min_n, loss)) + 
+  geom_point() + 
+  geom_smooth(method = 'lm') + 
+  theme_bw()
+
+
+
+p <- (1 + sqrt(1 - 4 * (loss/4))) / 2
+
+
+
+
+# PROBLEM: need some way to make predictions on new samples :/ 
+
+
+# Train a FORDE model
+forde_trn <- function(f, x) {
+  num_trees <- length(f)
+  n <- nrow(x)
+  # Convert chars and logicals to factors
+  idx_char <- sapply(x, is.character)
+  if (any(idx_char)) {
+    x[, idx_char] <- as.data.frame(
+      lapply(x[, idx_char, drop = FALSE], as.factor)
+    )
+  }
+  idx_logical <- sapply(x, is.logical)
+  if (any(idx_logical)) {
+    x[, idx_logical] <- as.data.frame(
+      lapply(x[, idx_logical, drop = FALSE], as.factor)
+    )
+  }
+  factor_cols <- sapply(x, is.factor)
+  # Create node_dt from f
+  node_dt <- foreach(b = 1:num_trees, .combine = rbind) %dopar% {
+    tree <- f[[b]]
+    n_leaves <- length(tree)
+    tmp <- data.table(
+      tree = b, nodeid = 1:n_leaves, n_per_leaf = sapply(tree, length)
+    )
+    tmp[, cvg := n_per_leaf / n]
+    node_id <- unlist(sapply(1:n_leaves, function(l) {
+      rep(l, times = length(tree[[l]]))
+    }))
+    node_dt <- data.table(i = unlist(tree), tree = b, nodeid = node_id)
+    node_dt <- merge(node_dt, tmp, by = c('tree', 'nodeid'))
+    node_dt <- node_dt[order(i)]
+  }
+  # Fit normals for all continuous variables in terminal nodes
+  if (any(!factor_cols)) {
+    params <- foreach(b = 1:num_trees, .combine = rbind) %dopar% {
+      dt <- data.table(
+        tree = b, x[, !factor_cols, drop = FALSE], 
+        nodeid = node_dt$nodeid,
+        cvg = node_dt$cvg
+      )
+      long <- melt(dt, id.vars = c('tree', 'nodeid'))
+      long[, list(mean = mean(value), sd = sd(value)), by = .(tree, nodeid, variable)]
+      out <- as.data.frame(long)
+      out$theta <- lapply(1:nrow(out), function(i) {
+        list('mean' = long$mean[i], 'sd' = long$sd[i])
+      })
+      out$mean <- out$sd <- NULL
+      return(out)
+    }
+  }
+  # Calculate class probabilities for categorical data in all terminal nodes
+  if (any(factor_cols)) {
+    class_probs <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% {
+      dt <- data.table(
+        tree = b, x[, factor_cols, drop = FALSE], nodeid = node_dt$nodeid,
+        cvg = node_dt$cvg, n_per_leaf = node_dt$n_per_leaf
+      )
+      long <- melt(dt, id.vars = c('tree', 'nodeid', 'n_per_leaf'), 
+                   value.factor = TRUE)
+      setDT(long)[, prob := .N / n_per_leaf, by = .(tree, nodeid, variable, value)]
+      long[, n_per_leaf := NULL]
+      out <- as.data.frame(long)
+      out$theta <- lapply(1:nrow(out), function(i) {
+        list('prob' = long$prob[i])
+      })
+      out$mean <- out$sd <- NULL
+      return(out)
+    }
+  }
+  # Goal: data frame with columns for 
+  # tree, nodeid, variable, theta
+  # Latter will have to be a named list
+  # Need Z or truncated distributions
+}
+
+# Evaluate likelihood on a test set (this will require predictions from f...)
+forde_tst <- function(forde, x) {
+  
+}
+
+# FORGE
+forge <- function(forde, n) {
+  leaf <- sample(1:nrow(BLAH), n)
+  x_cnt <- BLAH
+  x_cat <- BLAH
+}
+# Need to confirm that simulated samples land in the right leaf or else resample
+# Alternatively, we get this for free with truncation
+
+# Open question: should normalization constant Z be computed once over the whole
+# data or for each l, b, j?
+
+
+
+
+x <- lapply(1:num_trees, function(tree) {
+  tree_data <- as.data.table(treeInfo(f, tree = tree))
+  tree_data[, c("nodeID",  "leftChild", "rightChild", "splitvarName", "splitval", "prediction")]
+})
+times_vec <- sapply(x, nrow)
+y <- rbindlist(x)
+y[, Tree := rep(0:(n - 1), times = times_vec)]
+setnames(y, c("Node", "Yes", "No", "Feature", "Split",  "Prediction", "Tree"))
+y[, Feature := as.character(Feature)]
+y[y$Yes < 0, "Yes"] <- NA
+y[y$No < 0, "No"] <- NA
+y[, Missing := NA]
+y$Cover <- 0
+y$Decision.type <- factor(x = rep("<=", times = nrow(y)), levels = c("<=", "<"))
+y[is.na(Feature), Decision.type := NA]
+
+ID <- paste0(y$Node, "-", y$Tree)
+y$Yes <- match(paste0(y$Yes, "-", y$Tree), ID)
+y$No <- match(paste0(y$No, "-", y$Tree), ID)
+
+# Here we lose "Quality" information
+y[!is.na(Feature), Prediction := NA]
+
+# treeSHAP assumes, that [prediction = sum of predictions of the trees]
+# in random forest [prediction = mean of predictions of the trees]
+# so here we correct it by adjusting leaf prediction values
+y[is.na(Feature), Prediction := Prediction / n]
 
 
 
