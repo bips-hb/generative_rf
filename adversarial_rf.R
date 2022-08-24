@@ -129,7 +129,7 @@ forge <- function(adv_rf, n_out, trunc = TRUE) {
   if (any(adv_rf[, type == 'continuous'])) {
     d_cnt <- adv_rf[type == 'continuous', length(unique(variable))]
     df_cnt <- merge(leaves_out, adv_rf[type == 'continuous', ], 
-                    by = c('tree', 'leaf'))
+                    by = c('tree', 'leaf'), allow.cartesian = TRUE)
     n_tmp <- nrow(df_cnt)
     if (trunc == TRUE) {
       df_cnt[, synth := rtruncnorm(n_tmp, a = min, b = max, mean = mu, sd = sigma)]
@@ -145,7 +145,7 @@ forge <- function(adv_rf, n_out, trunc = TRUE) {
   if (any(adv_rf[, type == 'categorical'])) {
     n_cat <- nrow(unique(adv_rf[type == 'categorical', .(variable, value)]))
     df_cat <- merge(leaves_out, adv_rf[type == 'categorical', ],
-                    by = c('tree', 'leaf'))
+                    by = c('tree', 'leaf'), allow.cartesian = TRUE)
     df_cat[, synth := sample(value, size = .N / length(value), prob = prob), 
            by = .(variable, tree, leaf)]
     df_cat <- df_cat[, .(variable, synth)]
