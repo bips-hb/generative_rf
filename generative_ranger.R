@@ -50,9 +50,11 @@ generative_ranger <- function(x_real, x_synth = NULL, n_new, oob = FALSE,
   factor_col_names <- names(factor_cols)[factor_cols]
   
   # If no synthetic data provided, sample from marginals
-  x_synth <- as.data.frame(lapply(x_real, function(x) {
-    sample(x, length(x), replace = TRUE)
-  }))
+  if (is.null(x_synth)) {
+    x_synth <- as.data.frame(lapply(x_real, function(x) {
+      sample(x, length(x), replace = TRUE)
+    }))
+  }
   
   # Merge real and synthetic data
   dat <- rbind(data.frame(y = 0, x_real), 
