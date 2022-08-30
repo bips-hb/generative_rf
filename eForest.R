@@ -33,29 +33,26 @@
 eForest <- function(
     x, 
     x_tst = NULL,
-    num_trees = 500, 
+    num_trees = 200, 
     min_node_size = 5, 
     parallel = TRUE,
     ...) {
   # Prelimz
-  prep <- function(input) {
-    x <- as.data.frame(input)
-    idx_char <- sapply(x, is.character)
-    if (any(idx_char)) {
-      x[, idx_char] <- as.data.frame(
-        lapply(x[, idx_char, drop = FALSE], as.factor)
-      )
-    }
-    idx_logical <- sapply(x, is.logical)
-    if (any(idx_logical)) {
-      x[, idx_logical] <- as.data.frame(
-        lapply(x[, idx_logical, drop = FALSE], as.factor)
-      )
-    }
-    factor_cols <- sapply(x, is.factor)
-  }
-  x <- prep(x)
+  x <- as.data.frame(x)
   n <- nrow(x)
+  idx_char <- sapply(x, is.character)
+  if (any(idx_char)) {
+    x[, idx_char] <- as.data.frame(
+      lapply(x[, idx_char, drop = FALSE], as.factor)
+    )
+  }
+  idx_logical <- sapply(x, is.logical)
+  if (any(idx_logical)) {
+    x[, idx_logical] <- as.data.frame(
+      lapply(x[, idx_logical, drop = FALSE], as.factor)
+    )
+  }
+  factor_cols <- sapply(x, is.factor)
   # Tree growing function (each tree gets its own synthetic data)
   grow_tree <- function(b) {
     # Draw data, fit model
@@ -76,8 +73,21 @@ eForest <- function(
   }
   # Find global bounds
   if (!is.null(x_tst)) {
-    x <- prep(x_tst)
+    x <- as.data.frame(x_tst)
     n <- nrow(x)
+    idx_char <- sapply(x, is.character)
+    if (any(idx_char)) {
+      x[, idx_char] <- as.data.frame(
+        lapply(x[, idx_char, drop = FALSE], as.factor)
+      )
+    }
+    idx_logical <- sapply(x, is.logical)
+    if (any(idx_logical)) {
+      x[, idx_logical] <- as.data.frame(
+        lapply(x[, idx_logical, drop = FALSE], as.factor)
+      )
+    }
+    factor_cols <- sapply(x, is.factor)
   }
   bnds_cnt <- bnds_cat <- NULL
   if (any(!factor_cols)) {
