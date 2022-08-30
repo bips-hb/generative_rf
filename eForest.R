@@ -18,7 +18,7 @@
 #' Synthetic data is sampled independently for each tree.
 #' 
 #' @return
-#' An encoded dataset with bounds for each sample-variable combination.
+#' An encoded dataset of maximum compatible rules for each sample.
 #' 
 #' @references 
 #' Feng, J. and Zhou, Z. (2017). AutoEncoder by Forest. \emph{arXiv} preprint, 
@@ -38,21 +38,24 @@ eForest <- function(
     parallel = TRUE,
     ...) {
   # Prelimz
-  x <- as.data.frame(x)
+  prep <- function(input) {
+    x <- as.data.frame(input)
+    idx_char <- sapply(x, is.character)
+    if (any(idx_char)) {
+      x[, idx_char] <- as.data.frame(
+        lapply(x[, idx_char, drop = FALSE], as.factor)
+      )
+    }
+    idx_logical <- sapply(x, is.logical)
+    if (any(idx_logical)) {
+      x[, idx_logical] <- as.data.frame(
+        lapply(x[, idx_logical, drop = FALSE], as.factor)
+      )
+    }
+    factor_cols <- sapply(x, is.factor)
+  }
+  x <- prep(x)
   n <- nrow(x)
-  idx_char <- sapply(x, is.character)
-  if (any(idx_char)) {
-    x[, idx_char] <- as.data.frame(
-      lapply(x[, idx_char, drop = FALSE], as.factor)
-    )
-  }
-  idx_logical <- sapply(x, is.logical)
-  if (any(idx_logical)) {
-    x[, idx_logical] <- as.data.frame(
-      lapply(x[, idx_logical, drop = FALSE], as.factor)
-    )
-  }
-  factor_cols <- sapply(x, is.factor)
   # Tree growing function (each tree gets its own synthetic data)
   grow_tree <- function(b) {
     # Draw data, fit model
@@ -73,21 +76,8 @@ eForest <- function(
   }
   # Find global bounds
   if (!is.null(x_tst)) {
-    x <- as.data.frame(x_tst)
+    x <- prep(x_tst)
     n <- nrow(x)
-    idx_char <- sapply(x, is.character)
-    if (any(idx_char)) {
-      x[, idx_char] <- as.data.frame(
-        lapply(x[, idx_char, drop = FALSE], as.factor)
-      )
-    }
-    idx_logical <- sapply(x, is.logical)
-    if (any(idx_logical)) {
-      x[, idx_logical] <- as.data.frame(
-        lapply(x[, idx_logical, drop = FALSE], as.factor)
-      )
-    }
-    factor_cols <- sapply(x, is.factor)
   }
   bnds_cnt <- bnds_cat <- NULL
   if (any(!factor_cols)) {
@@ -134,7 +124,7 @@ eForest <- function(
     path <- na.omit(path[, .(idx, nodeID, splitvarName, splitval, bound)])
     colnames(path)[c(3, 4)] <- c('variable', 'value')
     path <- rbind(path, bounds)
-    # Reduce to tree encoding, export
+    # Reduce to tree encoding
     sup <- path[bound == 'hi', min(value), by = variable]
     inf <- path[bound == 'lo', max(value), by = variable]
     out <- merge(sup, inf, by = 'variable')
@@ -143,6 +133,7 @@ eForest <- function(
     out <- out[, .(tree, idx, variable, max, min)]
     return(out)
   }
+  # Loop over trees and samples
   if (isTRUE(parallel)) {
     z <- foreach(bb = 1:num_trees, .combine = rbind) %:%
       foreach(ii = 1:n, .combine = rbind) %dopar% encoding(bb, ii)
@@ -150,6 +141,7 @@ eForest <- function(
     z <- foreach(bb = 1:num_trees, .combine = rbind) %:%
       foreach(ii = 1:n, .combine = rbind) %do% encoding(bb, ii)
   }
+  # Reduce to maximal compatible rule
   sup <- z[, min(max), by = .(idx, variable)]
   inf <- z[, max(min), by = .(idx, variable)]
   z <- merge(sup, inf, by = c('idx', 'variable'))
