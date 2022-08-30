@@ -30,28 +30,32 @@
 #'
 
 # Autoencoder forest function
-eForest <- function(
+e_forest <- function(
     x, 
     x_tst = NULL,
-    num_trees = 200, 
+    num_trees = 100, 
     min_node_size = 5, 
     parallel = TRUE,
     ...) {
   # Prelimz
+  prep <- function(x_input) {
+    idx_char <- sapply(x_input, is.character)
+    if (any(idx_char)) {
+      x_input[, idx_char] <- as.data.frame(
+        lapply(x_input[, idx_char, drop = FALSE], as.factor)
+      )
+    }
+    idx_logical <- sapply(x_input, is.logical)
+    if (any(idx_logical)) {
+      x_input[, idx_logical] <- as.data.frame(
+        lapply(x_input[, idx_logical, drop = FALSE], as.factor)
+      )
+    }
+    return(x_input)
+  }
   x <- as.data.frame(x)
   n <- nrow(x)
-  idx_char <- sapply(x, is.character)
-  if (any(idx_char)) {
-    x[, idx_char] <- as.data.frame(
-      lapply(x[, idx_char, drop = FALSE], as.factor)
-    )
-  }
-  idx_logical <- sapply(x, is.logical)
-  if (any(idx_logical)) {
-    x[, idx_logical] <- as.data.frame(
-      lapply(x[, idx_logical, drop = FALSE], as.factor)
-    )
-  }
+  x <- prep(x)
   factor_cols <- sapply(x, is.factor)
   # Tree growing function (each tree gets its own synthetic data)
   grow_tree <- function(b) {
@@ -63,7 +67,8 @@ eForest <- function(
     dat <- rbind(data.table(y = 1, x_real),
                  data.table(y = 0, x_synth))
     f <- ranger(y ~ ., dat, classification = TRUE, num.trees = 1,
-                replace = FALSE, min.node.size = min_node_size, ...)
+                replace = FALSE, min.node.size = min_node_size, 
+                respect.unordered.factors = TRUE, ...)
     return(f)
   }
   if (isTRUE(parallel)) {
@@ -75,18 +80,7 @@ eForest <- function(
   if (!is.null(x_tst)) {
     x <- as.data.frame(x_tst)
     n <- nrow(x)
-    idx_char <- sapply(x, is.character)
-    if (any(idx_char)) {
-      x[, idx_char] <- as.data.frame(
-        lapply(x[, idx_char, drop = FALSE], as.factor)
-      )
-    }
-    idx_logical <- sapply(x, is.logical)
-    if (any(idx_logical)) {
-      x[, idx_logical] <- as.data.frame(
-        lapply(x[, idx_logical, drop = FALSE], as.factor)
-      )
-    }
+    x <- prep(x)
     factor_cols <- sapply(x, is.factor)
   }
   bnds_cnt <- bnds_cat <- NULL
@@ -152,17 +146,35 @@ eForest <- function(
       foreach(ii = 1:n, .combine = rbind) %do% encoding(bb, ii)
   }
   # Reduce to maximal compatible rule
-  sup <- z[, min(max), by = .(idx, variable)]
-  inf <- z[, max(min), by = .(idx, variable)]
-  z <- merge(sup, inf, by = c('idx', 'variable'))
-  colnames(z)[c(3, 4)] <- c('max', 'min')
+  z_cat <- z_cnt <- NULL
+  if (any(factor_cols)) {
+    fctrs <- colnames(x)[factor_cols]
+    z_cat <- z[variable %in% fctrs]
+    for (j in fctrs) {
+      rng <- 1:length(levels(x[[j]]))
+      for (b in 1:num_trees) {
+        lvls <- rf[[b]]$forest$covariate.levels[[j]]
+        z_cat[tree == b & variable == j, 
+          values := paste(lvls[rng >= min & rng <= max], collapse = ', '), 
+          by = idx]
+      }
+    }
+    z_cat[, values := Reduce(intersect, strsplit(values, ', ')), 
+          by = .(idx, variable)]
+    z_cat <- unique(z_cat[, .(idx, variable, values)])
+    z_cat[, max := NA_real_][, min := NA_real_]
+    z_cat <- z_cat[, .(idx, variable, max, min, values)]
+  } 
+  if (any(!factor_cols)) {
+    z_cnt <- z[!variable %in% colnames(x)[factor_cols]]
+    sup <- z_cnt[, min(max), by = .(idx, variable)]
+    inf <- z_cnt[, max(min), by = .(idx, variable)]
+    z_cnt <- merge(sup, inf, by = c('idx', 'variable'))
+    colnames(z_cnt)[3:4] <- c('max', 'min')
+    z_cnt[, values := NA_character_]
+  }
+  z <- rbind(z_cnt, z_cat)[order(idx)]
   return(z)
 }
-
-
-
-
-
-
 
 
