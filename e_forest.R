@@ -162,15 +162,15 @@ e_forest <- function(
     z_cat[, values := Reduce(intersect, strsplit(values, ', ')), 
           by = .(idx, variable)]
     z_cat <- unique(z_cat[, .(idx, variable, values)])
-    z_cat[, max := NA_real_][, min := NA_real_]
-    z_cat <- z_cat[, .(idx, variable, max, min, values)]
+    z_cat[, min := NA_real_][, max := NA_real_]
+    z_cat <- z_cat[, .(idx, variable, min, max, values)]
   } 
   if (any(!factor_cols)) {
     z_cnt <- z[!variable %in% colnames(x)[factor_cols]]
-    sup <- z_cnt[, min(max), by = .(idx, variable)]
     inf <- z_cnt[, max(min), by = .(idx, variable)]
-    z_cnt <- merge(sup, inf, by = c('idx', 'variable'))
-    colnames(z_cnt)[3:4] <- c('max', 'min')
+    sup <- z_cnt[, min(max), by = .(idx, variable)]
+    z_cnt <- merge(inf, sup, by = c('idx', 'variable'))
+    colnames(z_cnt)[3:4] <- c('min', 'max')
     z_cnt[, values := NA_character_]
   }
   z <- rbind(z_cnt, z_cat)[order(idx)]
