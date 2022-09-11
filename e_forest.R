@@ -26,7 +26,6 @@
 #' 
 #' @import data.table
 #' @import ranger 
-#' @import doRNG
 #' @import foreach
 #'
 
@@ -73,7 +72,7 @@ e_forest <- function(
     return(f)
   }
   if (isTRUE(parallel)) {
-    rf <- foreach(bb = 1:num_trees) %dorng% grow_tree(bb)
+    rf <- foreach(bb = 1:num_trees) %dopar% grow_tree(bb)
   } else {
     rf <- foreach(bb = 1:num_trees) %do% grow_tree(bb)
   }
@@ -141,7 +140,7 @@ e_forest <- function(
   # Loop over trees and samples
   if (isTRUE(parallel)) {
     z <- foreach(bb = 1:num_trees, .combine = rbind) %:%
-      foreach(ii = 1:n, .combine = rbind) %dorng% encoding(bb, ii)
+      foreach(ii = 1:n, .combine = rbind) %dopar% encoding(bb, ii)
   } else {
     z <- foreach(bb = 1:num_trees, .combine = rbind) %:%
       foreach(ii = 1:n, .combine = rbind) %do% encoding(bb, ii)
