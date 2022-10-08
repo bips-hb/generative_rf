@@ -64,7 +64,8 @@ p2 <- ggplot(res_inf, aes(x = effect_cols)) +
 # Plot together -----------------------------------------------------------
 prow <- plot_grid(p1 + theme(legend.position = "none"), 
                   p2 + theme(legend.position = "none"), 
-                  ncol = 2, labels = "AUTO", label_x = c(.08, 0))
+                  ncol = 2, labels = "AUTO", label_x = c(.05, 0), 
+                  rel_widths = c(.513, .487))
 legend <- get_legend(
   p1 + theme(legend.position = "bottom")
 )
