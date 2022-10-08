@@ -16,14 +16,14 @@ num_trees <- 10
 min_node_size <- 5
 oob <- FALSE
 dist <- c("normal", "pwc")
-beta <- 1
+beta <- 2
 
 # Registry ----------------------------------------------------------------
-reg_name <- "kl_by_n"
+reg_name <- "loglik_by_n"
 reg_dir <- file.path("registries", reg_name)
 unlink(reg_dir, recursive = TRUE)
 makeExperimentRegistry(file.dir = reg_dir, 
-                       packages = c("genrf", "mvtnorm", "Rfast", "monomvn"), 
+                       packages = c("genrf", "mvtnorm", "Rfast"), 
                        source = "correia.R")
 
 # Problems -----------------------------------------------------------
@@ -54,11 +54,9 @@ run_genrf <- function(data, job, instance, ...) {
   # Generate synthetic data
   mod <- genrf$new(instance$data,  ...)
   x_new <- mod$sample(nrow(instance$data))
-
-  # Calculate KL divergence
-  est <- Rfast::mvnorm.mle(as.matrix(x_new[, -1]))
-  monomvn::kl.norm(mu1 = instance$mu, S1 = instance$sigma,
-                   mu2 = est$mu, S2 = est$sigma)
+  
+  # Calculate mean loglik
+  mean(mvtnorm::dmvnorm(x_new[, -1], mean = instance$mu, sigma = instance$sigma, log = TRUE))
 }
 addAlgorithm(name = "genrf", fun = run_genrf)
 
@@ -66,10 +64,8 @@ run_correia <- function(data, job, instance, ...) {
   # Generate synthetic data
   x_new <- correia(x_real = instance$data, label = "yy", n_new = nrow(instance$data), ...)
   
-  # Calculate KL divergence
-  est <- Rfast::mvnorm.mle(as.matrix(x_new[, -1]))
-  monomvn::kl.norm(mu1 = instance$mu, S1 = instance$sigma,
-                   mu2 = est$mu, S2 = est$sigma)
+  # Calculate mean loglik
+  mean(mvtnorm::dmvnorm(x_new[, -1], mean = instance$mu, sigma = instance$sigma, log = TRUE))
 }
 addAlgorithm(name = "correia", fun = run_correia)
 
@@ -116,3 +112,38 @@ res[, KL := result.1]
 
 # Save result
 saveRDS(res, paste0(reg_name, ".Rds"))
+
+# Load results
+#res <- readRDS(paste0(reg_name, ".Rds"))
+
+# Plot KL by n ------------------------------------------------------------
+res_mean <- res[, mean(KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
+res_mean[, KL := V1]
+res_mean[, Dimensionality := as.factor(p)]
+res_mean[, Method := factor(paste(algorithm, dist, sep = "_"), 
+                            levels = c("correia_pwc", "genrf_pwc", "correia_normal", "genrf_normal"), 
+                            labels = c("Piecewise constant\n(supervised)", "Piecewise constant\n(unsupervised)", "GeFs (Correia et al.)", "FORGE"))]
+
+# Save mean result
+saveRDS(res_mean, paste0(reg_name, "_mean.Rds"))
+
+ggplot(res_mean, aes(x = n)) + 
+  geom_line(aes(col = Method, y = -KL)) + 
+  geom_point(aes(col = Method, shape = Method, y = -KL)) + 
+  #geom_ribbon(aes(ymin = KL_lo, ymax = KL_hi, fill = Method), alpha = .1) + 
+  #geom_hline(yintercept = 0) + 
+  xlab("Sample size") + 
+  ylab("Negative log-likelihood") + 
+  scale_x_continuous(trans = 'log10') + 
+  #scale_y_continuous(trans = 'log10', breaks = c(.2, .5, 1.2)) + 
+  #scale_y_continuous(trans = 'log10') + 
+  #scale_linetype_manual(values = c("twodash", "dashed", "dotted", "solid")) + 
+  scale_shape_manual(values = c(16, 3, 17, 15)) + 
+  scale_color_nejm() + 
+  scale_fill_nejm() + 
+  theme_bw() #+ 
+  #theme(legend.position = "none")
+
+#ggsave(paste0(reg_name, ".pdf"), width = 5, height = 4)
+
+

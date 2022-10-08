@@ -9,10 +9,10 @@ library(scales)
 set.seed(42)
 
 # KL by n -----------------------------------------------------------------
-res_n <- readRDS("kl_by_n.Rds")
-res_n[, KL_mean := mean(KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
-res_n[, KL_lo := quantile(KL, probs = c(.05)), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
-res_n[, KL_hi := quantile(KL, probs = c(.95)), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
+res_n <- readRDS("loglik_by_n.Rds")
+res_n[, KL_mean := mean(-KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
+res_n[, KL_lo := quantile(-KL, probs = c(.05)), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
+res_n[, KL_hi := quantile(-KL, probs = c(.95)), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
 res_n[, Method := factor(paste(algorithm, dist, sep = "_"), 
                          levels = c("correia_pwc", "genrf_pwc", "correia_normal", "genrf_normal"), 
                          labels = c("PWC\n(sup.)", "PWC\n(unsup.)", "GeFs", "FORGE"))]
@@ -24,21 +24,20 @@ p1 <- ggplot(res_n, aes(x = n)) +
   geom_ribbon(aes(ymin = KL_lo, ymax = KL_hi, fill = Method), alpha = .1) + 
   #geom_hline(yintercept = 0) + 
   xlab("Sample size") + 
-  ylab("KL-divergence") + 
+  ylab("Negative log-likelihood") + 
   scale_x_continuous(trans = 'log10') + 
-  scale_y_continuous(trans = 'log10', breaks = c(.2, .5, 1.2)) + 
+  scale_y_continuous(breaks = c(14, 16, 18, 20)) + 
   #scale_linetype_manual(values = c("twodash", "dashed", "dotted", "solid")) + 
   scale_shape_manual(values = c(16, 3, 17, 15)) + 
   scale_color_nejm() + 
   scale_fill_nejm() + 
-  theme_bw() + 
-  theme(legend.position = "none")
+  theme_bw()
 
 # KL by informative features ----------------------------------------------
-res_inf <- readRDS("kl_by_effects.Rds")
-res_inf[, KL_mean := mean(KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
-res_inf[, KL_lo := quantile(KL, probs = c(.05)), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
-res_inf[, KL_hi := quantile(KL, probs = c(.95)), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
+res_inf <- readRDS("loglik_by_effects.Rds")
+res_inf[, KL_mean := mean(-KL), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
+res_inf[, KL_lo := quantile(-KL, probs = c(.05)), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
+res_inf[, KL_hi := quantile(-KL, probs = c(.95)), by = .(n, p, cov_base, num_trees, min_node_size, oob, dist, algorithm, effect_cols, beta)]
 res_inf[, Method := factor(paste(algorithm, dist, sep = "_"), 
                            levels = c("correia_pwc", "genrf_pwc", "correia_normal", "genrf_normal"), 
                            labels = c("PWC\n(sup.)", "PWC\n(unsup.)", "GeFs", "FORGE"))]
@@ -54,7 +53,7 @@ p2 <- ggplot(res_inf, aes(x = effect_cols)) +
   scale_color_nejm() + 
   scale_fill_nejm() + 
   scale_x_continuous(breaks = pretty_breaks()) + 
-  scale_y_continuous(trans = 'log10', breaks = c(.2, .5, 1.2)) + 
+  scale_y_continuous(breaks = c(14, 16, 18, 20)) + 
   #scale_linetype_manual(values = c("twodash", "dashed", "dotted", "solid")) + 
   scale_shape_manual(values = c(16, 3, 17, 15)) + 
   theme_bw() + 
@@ -63,6 +62,12 @@ p2 <- ggplot(res_inf, aes(x = effect_cols)) +
         legend.key.height=unit(22, "pt"))
 
 # Plot together -----------------------------------------------------------
-plot_grid(p1, p2, ncol = 2, rel_widths = c(.445, .555), labels = "AUTO", label_x = c(.06, 0))
-ggsave("kl.pdf", width = 8, height = 3)
+prow <- plot_grid(p1 + theme(legend.position = "none"), 
+                  p2 + theme(legend.position = "none"), 
+                  ncol = 2, labels = "AUTO", label_x = c(.08, 0))
+legend <- get_legend(
+  p1 + theme(legend.position = "bottom")
+)
+plot_grid(prow, legend, ncol = 1, rel_heights = c(1, .1))
+ggsave("loglik.pdf", width = 7, height = 3)
 
