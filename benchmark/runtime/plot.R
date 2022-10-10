@@ -268,5 +268,5 @@ legend2 <- get_legend(
   plt_dimensionality_process_time_sample + theme(legend.position = "bottom")
 )
 plot_grid(p2, legend2, ncol = 1, rel_heights = c(1, .1))
-ggsave("process_time2.pdf", width = 7, height = 4)
+ggsave("process_time2.pdf", width = 10, height = 5.7)
 
