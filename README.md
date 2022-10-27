@@ -1,5 +1,5 @@
-# Generative Random Forests
-Code and materials to reproduce manuscript "Smooth Densities and Generative Modeling with Unsupervised Random Forests"
+# Adversarial Random Forests
+Code and materials to reproduce manuscript "Adversarial Random Forests for Density Estimation and Generative Modelling"
 
 Files and directories included: 
 

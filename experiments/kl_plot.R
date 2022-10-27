@@ -31,8 +31,7 @@ p1 <- ggplot(res_n, aes(x = n)) +
   scale_shape_manual(values = c(16, 3, 17, 15)) + 
   scale_color_nejm() + 
   scale_fill_nejm() + 
-  theme_bw() + 
-  theme(legend.position = "none")
+  theme_bw() 
 
 # KL by informative features ----------------------------------------------
 res_inf <- readRDS("kl_by_effects.Rds")
@@ -63,6 +62,13 @@ p2 <- ggplot(res_inf, aes(x = effect_cols)) +
         legend.key.height=unit(22, "pt"))
 
 # Plot together -----------------------------------------------------------
-plot_grid(p1, p2, ncol = 2, rel_widths = c(.445, .555), labels = "AUTO", label_x = c(.06, 0))
-ggsave("kl.pdf", width = 8, height = 3)
+prow <- plot_grid(p1 + theme(legend.position = "none"), 
+                  p2 + theme(legend.position = "none"), 
+                  ncol = 2, labels = "AUTO", label_x = c(.05, 0), 
+                  rel_widths = c(.513, .487))
+legend <- get_legend(
+  p1 + theme(legend.position = "bottom")
+)
+plot_grid(prow, legend, ncol = 1, rel_heights = c(1, .1))
+ggsave("kl.pdf", width = 7, height = 3)
 

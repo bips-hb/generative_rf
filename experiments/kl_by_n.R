@@ -54,7 +54,7 @@ run_genrf <- function(data, job, instance, ...) {
   # Generate synthetic data
   mod <- genrf$new(instance$data,  ...)
   x_new <- mod$sample(nrow(instance$data))
-
+  
   # Calculate KL divergence
   est <- Rfast::mvnorm.mle(as.matrix(x_new[, -1]))
   monomvn::kl.norm(mu1 = instance$mu, S1 = instance$sigma,

@@ -50,7 +50,7 @@ plt_samplesize_train = ggplot(data = df , aes(x = n, y = mean_wall_time_train, c
   #scale_y_continuous(trans= 'log10')+
   ylab("Time (sec)")+
   theme_bw()+
-  theme(legend.position = 'none', legend.title = element_blank())+
+  #theme(legend.position = 'none', legend.title = element_blank())+
   scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), 
                         breaks=c('CTGAN (CPU)', 'CTGAN (GPU)', 'TVAE (CPU)', 'TVAE (GPU)', 'FORGE (CPU)'),
                         name = "Method")+
@@ -69,8 +69,8 @@ plt_samplesize_sample = ggplot(data = df , aes(x = n, y = mean_wall_time_sample,
   #scale_y_continuous(trans= 'log10')+
   ylab("")+
   theme_bw()+
-  theme(legend.key = element_rect(fill = "white"), legend.text = element_text(color = "white"), legend.title = element_text(color = "white")) +
-  guides(color = guide_legend(override.aes = list(color = NA, fill = NA)))+
+  #theme(legend.key = element_rect(fill = "white"), legend.text = element_text(color = "white"), legend.title = element_text(color = "white")) +
+  #guides(color = guide_legend(override.aes = list(color = NA, fill = NA)))+
   scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), 
                         breaks=c('CTGAN (CPU)', 'CTGAN (GPU)', 'TVAE (CPU)', 'TVAE (GPU)', 'FORGE (CPU)'),
                         name = "Method")+
@@ -94,7 +94,7 @@ plt_samplesize_process_time_train <- ggplot(data = df, aes(x = n, y = mean_proce
   #scale_y_continuous(trans= 'log10')+
   ylab("Process time (sec)")+
   theme_bw()+
-  theme(legend.position = 'none', legend.title = element_blank())+
+  #theme(legend.position = 'none', legend.title = element_blank())+
   scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), 
                         breaks=c('CTGAN (CPU)', 'CTGAN (GPU)', 'TVAE (CPU)', 'TVAE (GPU)', 'FORGE (CPU)'),
                         name = "Method")+
@@ -114,8 +114,8 @@ plt_samplesize_process_time_sample <- ggplot(data = df, aes(x = n, y = mean_proc
   #scale_y_continuous(trans= 'log10')+
   ylab("")+
   theme_bw()+
-  theme(legend.key = element_rect(fill = "white"), legend.text = element_text(color = "white"), legend.title = element_text(color = "white")) +
-  guides(color = guide_legend(override.aes = list(color = NA, fill = NA)))+
+  #theme(legend.key = element_rect(fill = "white"), legend.text = element_text(color = "white"), legend.title = element_text(color = "white")) +
+  #guides(color = guide_legend(override.aes = list(color = NA, fill = NA)))+
   scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), 
                         breaks=c('CTGAN (CPU)', 'CTGAN (GPU)', 'TVAE (CPU)', 'TVAE (GPU)', 'FORGE (CPU)'),
                         name = "Method")+
@@ -168,7 +168,7 @@ plt_dimensionality_train = ggplot(data = df, aes(x = d, y = mean_wall_time_train
   #scale_color_npg()+
   ylab("Time (sec)")+
   theme_bw()+
-  theme(legend.position = 'none', legend.title = element_blank())+
+  #theme(legend.position = 'none', legend.title = element_blank())+
   scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), 
                         breaks=c('CTGAN (CPU)', 'CTGAN (GPU)', 'TVAE (CPU)', 'TVAE (GPU)', 'FORGE (CPU)'),
                         name = "Method")+
@@ -213,7 +213,7 @@ plt_dimensionality_process_time_train <- ggplot(data = df, aes(x = d, y = mean_p
   #scale_y_continuous(trans= 'log10')+
   ylab("Process time (sec)")+
   theme_bw()+
-  theme(legend.position = 'none', legend.title = element_blank())+
+  #theme(legend.position = 'none', legend.title = element_blank())+
   scale_discrete_manual(values = colcol ,aesthetics = c("colour", "fill"), 
                         breaks=c('CTGAN (CPU)', 'CTGAN (GPU)', 'TVAE (CPU)', 'TVAE (GPU)', 'FORGE (CPU)'),
                         name = "Method")+
@@ -248,12 +248,25 @@ plt_dimensionality_process_time_sample <- ggplot(data = df, aes(x = d, y = mean_
 #-----------------
 # wall time
 # ----------------
-plot_grid(plt_samplesize_train, plt_samplesize_sample, 
-          plt_dimensionality_train, plt_dimensionality_sample, 
-          ncol = 2, rel_widths = c(.43, .59),rel_heights = c(.5, .5), labels = "AUTO", label_x = c(.06, 0))
+p1 <- plot_grid(plt_samplesize_train + theme(legend.position = "none"), 
+          plt_samplesize_sample + theme(legend.position = "none"), 
+          plt_dimensionality_train + theme(legend.position = "none"), 
+          plt_dimensionality_sample + theme(legend.position = "none"), 
+          ncol = 2, rel_widths = c(.53, .47) ,rel_heights = c(.5, .5), labels = "AUTO", label_x = c(.06, 0))
+legend1 <- get_legend(
+  plt_dimensionality_sample + theme(legend.position = "bottom")
+)
+plot_grid(p1, legend1, ncol = 1, rel_heights = c(1, .1))
 #ggsave("time.pdf", width = 8, height = 4)
 # bump in adult at dimensionality = 14 (~3 sec until d = 13, ~6 sec at d >= 14)
-plot_grid(plt_samplesize_process_time_train,plt_samplesize_process_time_sample, 
-          plt_dimensionality_process_time_train, plt_dimensionality_process_time_sample, 
-          ncol = 2, rel_widths = c(.41, .59),rel_heights = c(.5, .5), labels = "AUTO", label_x = c(.06, 0))
-#ggsave("process_time.pdf", width = 8, height = 4)
+p2 <- plot_grid(plt_samplesize_process_time_train + theme(legend.position = "none"),
+          plt_samplesize_process_time_sample + theme(legend.position = "none"), 
+          plt_dimensionality_process_time_train + theme(legend.position = "none"), 
+          plt_dimensionality_process_time_sample + theme(legend.position = "none"), 
+          ncol = 2, rel_widths = c(.513, .487), rel_heights = c(.5, .5), labels = "AUTO", label_x = c(.06, 0))
+legend2 <- get_legend(
+  plt_dimensionality_process_time_sample + theme(legend.position = "bottom")
+)
+plot_grid(p2, legend2, ncol = 1, rel_heights = c(1, .1))
+ggsave("process_time2.pdf", width = 10, height = 5.7)
+
