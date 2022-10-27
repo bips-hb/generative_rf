@@ -4,6 +4,8 @@
 #' hyperrectangle defined by the intersection of leaves in a random forest.
 #' 
 #' @param x Input data. 
+#' @param y Optional outcome variable. If \code{NULL}, unsupervised splits are
+#'   used instead.
 #' @param x_tst Optional test set to encode. If left \code{NULL}, the function
 #'   simply encodes \code{x}.
 #' @param num_trees Number of trees to grow. 
@@ -13,9 +15,11 @@
 #'
 #' @details
 #' This is a variant of the original autoencoder forest proposed by Feng & Zhou
-#' (2017). This version grows an unsupervised random forest, where the task is 
-#' to distinguish original samples from synthetic data drawn from the marginals.
-#' Synthetic data is sampled independently for each tree.
+#' (2017). With \code{y = NULL}, this version grows an unsupervised random 
+#' forest, where the task is to distinguish original samples from synthetic data 
+#' drawn from the marginals. Synthetic data is sampled independently for each 
+#' tree. When \code{y} is non-\code{NULL}, a classic supervised forest is used
+#' instead.
 #' 
 #' @return
 #' An encoded dataset of maximum compatible rules for each sample.
@@ -32,6 +36,7 @@
 # Autoencoder forest function
 e_forest <- function(
     x, 
+    y = NULL,
     x_tst = NULL,
     num_trees = 100, 
     min_node_size = 5, 
@@ -57,24 +62,32 @@ e_forest <- function(
   n <- nrow(x)
   x <- prep(x)
   factor_cols <- sapply(x, is.factor)
-  # Tree growing function (each tree gets its own synthetic data)
-  grow_tree <- function(b) {
-    # Draw data, fit model
-    x_real <- x[sample(n, replace = TRUE), , drop = FALSE]
-    x_synth <- as.data.frame(lapply(x, function(xj) {
-      sample(xj, n, replace = TRUE)
-    }))
-    dat <- rbind(data.table(y = 1, x_real),
-                 data.table(y = 0, x_synth))
-    f <- ranger(y ~ ., dat, classification = TRUE, num.trees = 1,
-                replace = FALSE, min.node.size = min_node_size, 
-                respect.unordered.factors = TRUE, ...)
-    return(f)
-  }
-  if (isTRUE(parallel)) {
-    rf <- foreach(bb = 1:num_trees) %dopar% grow_tree(bb)
+  supervised <- ifelse(is.null(y), FALSE, TRUE)
+  if (isTRUE(supervised)) {
+    dat <- data.frame(x, 'y' = y)
+    rf <- ranger(y ~ ., dat, num.trees = num_trees, 
+                 min.node.size = min_node_size, 
+                 respect.unordered.factors = TRUE, ...)
   } else {
-    rf <- foreach(bb = 1:num_trees) %do% grow_tree(bb)
+    # Tree growing function (each tree gets its own synthetic data)
+    grow_tree <- function(b) {
+      # Draw data, fit model
+      x_real <- x[sample(n, replace = TRUE), , drop = FALSE]
+      x_synth <- as.data.frame(lapply(x, function(xj) {
+        sample(xj, n, replace = TRUE)
+      }))
+      dat <- rbind(data.table(y = 1, x_real),
+                   data.table(y = 0, x_synth))
+      f <- ranger(y ~ ., dat, classification = TRUE, num.trees = 1,
+                  replace = FALSE, min.node.size = min_node_size, 
+                  respect.unordered.factors = TRUE, ...)
+      return(f)
+    }
+    if (isTRUE(parallel)) {
+      rf <- foreach(bb = 1:num_trees) %dopar% grow_tree(bb)
+    } else {
+      rf <- foreach(bb = 1:num_trees) %do% grow_tree(bb)
+    }
   }
   # Find global bounds
   if (!is.null(x_tst)) {
@@ -159,6 +172,7 @@ e_forest <- function(
           by = idx]
       }
     }
+    # THIS MIGHT BE WRONG?
     z_cat[, values := Reduce(intersect, strsplit(values, ', ')), 
           by = .(idx, variable)]
     z_cat <- unique(z_cat[, .(idx, variable, values)])
