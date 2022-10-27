@@ -2,8 +2,9 @@
 library(ranger)
 library(foreach)
 library(data.table)
+library(truncnorm)
 
-#' Generative Random Forests
+#' Generative Random Forests with truncated normal distributions to sample from.
 #'
 #' @param x_real Original data (data.frame).
 #' @param x_synth Naive synthetic data, if NULL will be sampled from marginals.
@@ -21,7 +22,7 @@ library(data.table)
 
 #registerDoParallel(20)
 #set.seed(42, kind = "L'Ecuyer-CMRG")
-#smpl <- generative_ranger(x_real = mnist28, num_trees = 1, n_new=10000)
+#smpl <- trunc_generative_ranger(x_real = iris, num_trees = 1, n_new=1000)
 
 trunc_generative_ranger <- function(x_real, x_synth = NULL, iterations=1, n_new, oob = FALSE, 
                               dist = "normal", num_trees = 10, min_node_size = 5, 
@@ -54,7 +55,7 @@ trunc_generative_ranger <- function(x_real, x_synth = NULL, iterations=1, n_new,
   factor_col_names <- names(factor_cols)[factor_cols]
   
   
-    foreach(iter = 1:iterations) %do% {
+    for(iter in 1:iterations) {
       
     
     # If no synthetic data provided, sample from marginals
@@ -78,8 +79,8 @@ trunc_generative_ranger <- function(x_real, x_synth = NULL, iterations=1, n_new,
     leafBoundsTrees <- foreach(tree = 1:num_trees, .combine = rbind) %do% {
       treeInf <- treeInfo(rf,tree=tree)
       leaves <- which(treeInf$terminal) -1 
-      boundsFilled <- foreach(leavesCount = 1:length(leaves), .combine = rbind) %dopar% {
-        node = leaves[leavesCount]
+      boundsFilled <- foreach(leavesCounter = 1:length(leaves), .combine = rbind) %dopar% {
+        node = leaves[leavesCounter]
         initBounds <- matrix(-Inf, nrow=1, ncol=p)
         boundsLeaf <- data.frame(tree,node,initBounds,-initBounds)
         colnames(boundsLeaf) <- c("tree", "leaf", paste(colnames(x_real),"l",sep="_"),paste(colnames(x_real),"r",sep="_"))
@@ -131,9 +132,9 @@ trunc_generative_ranger <- function(x_real, x_synth = NULL, iterations=1, n_new,
           long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, nodeid, variable)]
         }
       }
-      foreach(i = 1:nrow(long)) %do% {
-        params[i,"ltrunc"] <- leafBoundsTrees[leafBoundsTrees$tree == params[i,"tree"] & leafBoundsTrees$leaf == params[i,"nodeid"],paste(long[i,"variable"],"l",sep="_")]
-        params[i,"rtrunc"] <- leafBoundsTrees[leafBoundsTrees$tree == params[i,"tree"] & leafBoundsTrees$leaf == params[i,"nodeid"],paste(long[i,"variable"],"r",sep="_")]
+      for(i in 1:nrow(params)) {
+        params[i,"ltrunc"] <- leafBoundsTrees[leafBoundsTrees$tree == unlist(params[i,"tree"]) & leafBoundsTrees$leaf == unlist(params[i,"nodeid"]),paste(unlist(params[i,"variable"]),"l",sep="_")]
+        params[i,"rtrunc"] <- leafBoundsTrees[leafBoundsTrees$tree == unlist(params[i,"tree"]) & leafBoundsTrees$leaf == unlist(params[i,"nodeid"]),paste(unlist(params[i,"variable"]),"r",sep="_")]
       }
     }
     
