@@ -4,7 +4,7 @@ library(ggplot2)
 library(GGally)
 library(genrf)
 
-grf <- genrf$new(iris, num_trees = 10, min_node_size = 5)
+grf <- genrf$new(iris, num_trees = 10, leaf_size = 5)
 grf$sample(10)
 synth <- grf$sample(500)
 

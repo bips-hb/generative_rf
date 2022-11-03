@@ -15,5 +15,5 @@ dat["species"] = iris.target_names[iris.target]
 dat["species"] = dat["species"].astype("category")
 
 # Run generative RF
-mod = grf.genrf(dat,  oob = False, dist = "normal", n_estimators = 10)
+mod = grf.genrf(dat,  oob = False, dist = "normal", n_estimators = 10, min_samples_leaf = 5)
 mod.sample(10)

@@ -13,7 +13,7 @@ genrf <- R6::R6Class(
   classname = "genrf",
   public = list(
     # Create and fit a generative random forest
-    initialize = function(x, oob = FALSE, dist = "normal", num_trees = 10, min_node_size = 5, ...) {
+    initialize = function(x, oob = FALSE, dist = "normal", num_trees = 10, leaf_size = 5, ...) {
       # Convert input to data.frame
       private$orig_colnames <- colnames(x)
       x_real <- data.frame(x)
@@ -46,14 +46,14 @@ genrf <- R6::R6Class(
                    data.frame(y = 1, x_synth))
 
       # Fit ranger to both data
-      rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, num.trees = num_trees, min.node.size = min_node_size, ...)
+      private$rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, num.trees = num_trees, min.bucket = leaf_size, ...)
 
       # Get terminal nodes for all observations
-      pred <- predict(rf, x_real, type = "terminalNodes")$predictions
+      pred <- predict(private$rf, x_real, type = "terminalNodes")$predictions
 
       # If OOB, use only OOB trees
       if (oob) {
-        inbag <- (do.call(cbind, rf$inbag.counts) > 0)[1:nrow(x_real), ]
+        inbag <- (do.call(cbind, private$rf$inbag.counts) > 0)[1:nrow(x_real), ]
         pred[inbag] <- NA
       }
 
@@ -110,13 +110,13 @@ genrf <- R6::R6Class(
 
       # Get distributions parameters for each new obs.
       if (any(!private$factor_cols)) {
-        obs_params <- merge(sampled_trees_nodes, private$params, 
+        obs_params <- merge(sampled_trees_nodes, private$params,
                             by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
       }
 
       # Get probabilities for each new obs.
       if (any(private$factor_cols)) {
-        obs_probs <- merge(sampled_trees_nodes, private$class_probs, 
+        obs_probs <- merge(sampled_trees_nodes, private$class_probs,
                            by = c("tree", "nodeid"), sort = FALSE, allow.cartesian = TRUE)
       }
 
@@ -145,7 +145,7 @@ genrf <- R6::R6Class(
           } else if (private$dist == "Poisson") {
             rpois(n = n, obs_params[variable == colname, lambda])
           } else if (private$dist == "pwc") {
-            runif(n = n, min = obs_params[variable == colname, min], 
+            runif(n = n, min = obs_params[variable == colname, min],
                   max = obs_params[variable == colname, max])
           } else {
             stop("Unknown distribution.")
@@ -182,6 +182,7 @@ genrf <- R6::R6Class(
     orig_colnames = character(), # Original column names of the input data
     idx_char = logical(), # Which columns are chars before transformations?
     idx_logical = logical(), # Which columns are logicals before transformations?
-    dist = character() # Distribution for numeric columns
+    dist = character(), # Distribution for numeric columns
+    rf = list()
   )
 )
