@@ -46,7 +46,9 @@ genrf <- R6::R6Class(
                    data.frame(y = 1, x_synth))
 
       # Fit ranger to both data
-      private$rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, num.trees = num_trees, min.bucket = leaf_size, ...)
+      private$rf <- ranger::ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, 
+                                   num.trees = num_trees, min.bucket = leaf_size, 
+                                   respect.unordered.factors = TRUE, ...)
 
       # Get terminal nodes for all observations
       pred <- predict(private$rf, x_real, type = "terminalNodes")$predictions
