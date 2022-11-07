@@ -157,27 +157,26 @@ forde <- function(arf, x, alpha = 0.01) {
     b <- leaves[i, tree]
     l <- leaves[i, leaf]
     idx <- pred[, b] == l
-    # Continuous data
+    # Trace the path for each leaf to get extrema
+    tree <- as.data.table(treeInfo(arf, b))
+    path <- tree[nodeID == l]
+    path[, bound := NA_character_]
+    node <- l
+    while(node > 0) {
+      tmp <- tree[leftChild == node | rightChild == node, ]
+      tmp[, bound := ifelse(leftChild == node, 'hi', 'lo')]
+      path <- rbind(tmp, path)
+      node <- tmp$nodeID
+    }
+    path <- na.omit(path[, .(nodeID, splitvarName, splitval, bound)])
+    colnames(path)[2:3] <- c('variable', 'value')
+    path <- rbind(path, bounds)
+    inf <- path[bound == 'lo', max(value), by = variable]
+    sup <- path[bound == 'hi', min(value), by = variable]
+    psi1 <- merge(inf, sup, by = 'variable')
+    colnames(psi1)[c(2, 3)] <- c('min', 'max')
+    # Calculate mean and std dev for continuous features
     if (any(!factor_cols)) {
-      # Trace the path for each leaf to get extrema
-      tree <- as.data.table(treeInfo(arf, b))
-      path <- tree[nodeID == l]
-      path[, bound := NA_character_]
-      node <- l
-      while(node > 0) {
-        tmp <- tree[leftChild == node | rightChild == node, ]
-        tmp[, bound := ifelse(leftChild == node, 'hi', 'lo')]
-        path <- rbind(tmp, path)
-        node <- tmp$nodeID
-      }
-      path <- na.omit(path[, .(nodeID, splitvarName, splitval, bound)])
-      colnames(path)[2:3] <- c('variable', 'value')
-      path <- rbind(path, bounds)
-      inf <- path[bound == 'lo', max(value), by = variable]
-      sup <- path[bound == 'hi', min(value), by = variable]
-      psi1 <- merge(inf, sup, by = 'variable')
-      colnames(psi1)[c(2, 3)] <- c('min', 'max')
-      # Now compute mu and sigma
       vars <- colnames(x)[!factor_cols]
       x_leaf <- as.matrix(x[idx, !factor_cols, drop = FALSE])
       psi2 <- data.table(
@@ -193,6 +192,9 @@ forde <- function(arf, x, alpha = 0.01) {
       psi_cat <- foreach(j = which(factor_cols), .combine = rbind) %do% {
         k <- length(levels(x[[j]]))
         xj_leaf <- x[idx, j]
+        if (psi1[variable == colnames(x)[j], max - min] <= 1) {
+          alpha <- 0
+        }
         pr <- (table(xj_leaf) + alpha) / (length(xj_leaf) + alpha * k)
         data.table(
           'variable' = colnames(x)[j], 
