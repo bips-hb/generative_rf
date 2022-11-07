@@ -123,7 +123,6 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   }
   factor_cols <- sapply(x, is.factor)
   num_trees <- arf$num.trees
-  
   # Compute leaf bounds
   bnds <- foreach(b = 1:num_trees, .combine = rbind) %do% {
     tree_df <- as.data.table(treeInfo(arf, b))
@@ -152,11 +151,9 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   lo <- melt(lo, id.vars = c('tree', 'leaf'), value.name = 'min')
   hi <- melt(hi, id.vars = c('tree', 'leaf'), value.name = 'max')
   bnds <- merge(lo, hi, by = c('tree', 'leaf', 'variable'))
-  
   # Get terminal nodes for all observations
   pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
-  
-  # Leaf list
+  # Enumerate leaves
   leaves <- unique(bnds[, .(tree, leaf)])
   leaves[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
   bnds <- merge(bnds, leaves[cvg > 0], by = c('tree', 'leaf'))
@@ -204,11 +201,9 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   }
   # Loop over leaves in parallel
   psi <- foreach(ii = leaves[, which(cvg > 0)], .combine = rbind) %dopar% psi_fn(ii)
-  
   # BS hack for zero-variance points (this will be resolved with min.bucket)
   psi[is.na(prob) & is.na(sigma), sigma := 0.01]
   psi[sigma == 0, sigma := 0.01]
-  
   # Optionally prep test data
   if (!is.null(x_tst)) {
     x <- as.data.frame(x_tst)
@@ -228,7 +223,6 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     factor_cols <- sapply(x, is.factor)
     pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
   }
-  
   # Compute log-likelihood
   loglik <- foreach(i = 1:n, .combine = c) %dopar% {
     tree_lik <- foreach(b = 1:num_trees, .combine = c) %do% {
@@ -253,11 +247,9 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     }
     return(mean(tree_lik))
   }
-  
   # Export
   out <- list('psi' = psi, 'loglik' = loglik)
   return(out)
-  
 }
 
 
@@ -265,11 +257,9 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
 #' 
 #' Uses pre-trained FORDE model to simulate synthetic data.
 #' 
-#' @param arf Pre-trained adversarial random forest.
 #' @param psi Parameters learned via FORDE. 
 #' @param m Number of synthetic samples to generate
 #'
-#' @import ranger 
 #' @import data.table
 #' @importFrom foreach foreach %do% %dopar%
 #' @importFrom truncnorm rtruncnorm 
@@ -285,54 +275,26 @@ forge <- function(psi, m) {
   }
   length_psi_i <- nrow(psi) / nrow(omega)
   psi_idx[, idx := rep(1:m, each = length_psi_i)]
-  
+  # Simulate data
   synth_cnt <- synth_cat <- NULL
-  # Draw normal data
-  if (any(is.na(psi$prob))) {
+  if (any(is.na(psi$prob))) {  # Continuous
     psi_cnt <- psi_idx[is.na(prob)]
     psi_cnt[, dat := rtruncnorm(nrow(psi_cnt), a = min, b = max,
                                 mean = mu, sd = sigma)]
     synth_cnt <- dcast(psi_cnt, idx ~ variable, value.var = 'dat')
     synth_cnt[, idx := NULL]
   }
-  # Draw categorical data
-  if (any(!is.na(psi$prob))) {
+  if (any(!is.na(psi$prob))) { # Categorical
     psi_cat <- psi_idx[!is.na(prob)]
     psi_cat[, dat := sample(value, 1, prob = prob), by = .(idx, variable)]
     synth_cat <- dcast(unique(psi_cat[, .(idx, variable, dat)]), 
-                     idx ~ variable, value.var = 'dat')
+                       idx ~ variable, value.var = 'dat')
     synth_cat[, idx := NULL]
   }
-  
   # Export
   x_synth <- cbind(synth_cnt, synth_cat)
   return(x_synth)
-  
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
