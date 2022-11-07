@@ -1,6 +1,6 @@
 #' Adversarial random forest
 #' 
-#' Implements an adversarial RF to learn distribution parameters.
+#' Implements an adversarial RF to learn independence-inducing splits.
 #' 
 #' @param x Input data. 
 #' @param delta Tolerance parameter. Algorithm converges when OOB accuracy is
@@ -10,17 +10,10 @@
 #' @param parallel Compute in parallel? Must register backend beforehand.
 #' @param ... Extra parameters to be passed to \code{ranger}.
 #'
-#' @details
-#' 
-#' 
-#' @return
-#' 
 #' 
 #' @import ranger 
-#' @importFrom foreach foreach %dopar%
-#' @importFrom data.table data.table melt setDT
-#' @importFrom truncnorm dtruncnorm rtruncnorm
-#' @importFrom matrixStats colSds
+#' @import data.table
+#' @importFrom foreach foreach %do% %dopar%
 #'
 
 adversarial_rf <- function(
@@ -92,10 +85,28 @@ adversarial_rf <- function(
   return(rf0)
 }
 
-# Density estimator
-forde <- function(arf, x, alpha = 0.01) {
+
+#' Forests for density estimation
+#' 
+#' Uses a pre-trained ARF model to estimate leaf and distribution parameters.
+#' 
+#' @param arf Pre-trained adversarial random forest.
+#' @param x_trn Training data for estimating parameters.
+#' @param x_tst Optional test data. If supplied, the function computes 
+#'   log-likelihoods on test data (measured in nats).
+#' @param alpha Smoothing parameter for categorical data. Ensures that levels 
+#'   have zero probability only if splits command it.
+#'
+#' @import ranger 
+#' @import data.table
+#' @importFrom foreach foreach %do% %dopar%
+#' @importFrom truncnorm dtruncnorm 
+#' @importFrom matrixStats colSds
+#' 
+
+forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   # Prelimz
-  x <- as.data.frame(x)
+  x <- as.data.frame(x_trn)
   n <- nrow(x)
   d <- ncol(x)
   idx_char <- sapply(x, is.character)
@@ -148,8 +159,7 @@ forde <- function(arf, x, alpha = 0.01) {
   # Leaf list
   leaves <- unique(bnds[, .(tree, leaf)])
   leaves[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
-  leaves <- leaves[cvg > 0]
-  bnds <- merge(bnds, leaves[, .(tree, leaf)], by = c('tree', 'leaf'))
+  bnds <- merge(bnds, leaves[cvg > 0], by = c('tree', 'leaf'))
   
   # Compute parameters for each leaf
   psi_cnt <- psi_cat <- NULL
@@ -189,40 +199,114 @@ forde <- function(arf, x, alpha = 0.01) {
     } 
     # Put it all together, export
     psi <- merge(rbind(psi_cnt, psi_cat), bnds_bl, by = 'variable')
-    psi <- psi[, .(tree, leaf, variable, min, max, mu, sigma, value, prob)]
+    psi <- psi[, .(tree, leaf, cvg, variable, min, max, mu, sigma, value, prob)]
     return(psi)
   }
   # Loop over leaves in parallel
-  psi <- foreach(ii = 1:nrow(leaves), .combine = rbind) %dopar% psi_fn(ii)
+  psi <- foreach(ii = leaves[, which(cvg > 0)], .combine = rbind) %dopar% psi_fn(ii)
   
   # BS hack for zero-variance points (this will be resolved with min.bucket)
   psi[is.na(prob) & is.na(sigma), sigma := 0.01]
   psi[sigma == 0, sigma := 0.01]
   
-  # Now compute densities
+  # Optionally prep test data
+  if (!is.null(x_tst)) {
+    x <- as.data.frame(x_tst)
+    n <- nrow(x_tst)
+    idx_char <- sapply(x, is.character)
+    if (any(idx_char)) {
+      x[, idx_char] <- as.data.frame(
+        lapply(x[, idx_char, drop = FALSE], as.factor)
+      )
+    }
+    idx_logical <- sapply(x, is.logical)
+    if (any(idx_logical)) {
+      x[, idx_logical] <- as.data.frame(
+        lapply(x[, idx_logical, drop = FALSE], as.factor)
+      )
+    }
+    factor_cols <- sapply(x, is.factor)
+    pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
+  }
+  
+  # Compute log-likelihood
   loglik <- foreach(i = 1:n, .combine = c) %dopar% {
     tree_lik <- foreach(b = 1:num_trees, .combine = c) %do% {
-      psi_l <- psi[tree == b & leaf == pred[i, b]]
-      j_lik <- sapply(1:d, function(j) {
-        psi_j <- psi_l[variable == colnames(x)[j]]
-        if (j %in% which(!factor_cols)) {
-          ll_j <- log(dtruncnorm(x[i, j], a = psi_j$min, b = psi_j$max, 
-                               mean = psi_j$mu, sd = psi_j$sigma))
-        } else {
-          ll_j <- psi_j[value == x[i, j], log(prob)]
-        }
-        return(ll_j)
-      })
-      out <- sum(j_lik) * leaves[tree == b & leaf == pred[i, b], cvg]
-      return(out)
+      cvg_b <- leaves[tree == b & leaf == pred[i, b], cvg]
+      if (cvg_b == 0) {
+        ll_b <- 0
+      } else {
+        psi_l <- psi[tree == b & leaf == pred[i, b]]
+        j_lik <- sapply(1:d, function(j) {
+          psi_j <- psi_l[variable == colnames(x)[j]]
+          if (j %in% which(!factor_cols)) {
+            ll_j <- log(dtruncnorm(x[i, j], a = psi_j$min, b = psi_j$max, 
+                                   mean = psi_j$mu, sd = psi_j$sigma))
+          } else {
+            ll_j <- psi_j[value == x[i, j], log(prob)]
+          }
+          return(ll_j)
+        })
+        ll_b <- sum(j_lik) * cvg_b
+      }
+      return(ll_b)
     }
-    out <- mean(tree_lik)
-    return(out)
+    return(mean(tree_lik))
   }
   
   # Export
   out <- list('psi' = psi, 'loglik' = loglik)
   return(out)
+  
+}
+
+
+#' Forests for generative modelling
+#' 
+#' Uses pre-trained FORDE model to simulate synthetic data.
+#' 
+#' @param arf Pre-trained adversarial random forest.
+#' @param psi Parameters learned via FORDE. 
+#' @param m Number of synthetic samples to generate
+#'
+#' @import ranger 
+#' @import data.table
+#' @importFrom foreach foreach %do% %dopar%
+#' @importFrom truncnorm rtruncnorm 
+#' 
+
+forge <- function(psi, m) {
+  # Draw random leaves with probability proportional to coverage
+  omega <- unique(psi[, .(tree, leaf, cvg)])
+  omega[, pr := cvg / max(tree)][, idx := .I]
+  draws <- sample(omega$idx, size = m, replace = TRUE, prob = omega$pr)
+  psi_idx <- foreach(i = draws, .combine = rbind) %do% {
+    psi[tree == omega[idx == i, tree] & leaf == omega[idx == i, leaf]]
+  }
+  length_psi_i <- nrow(psi) / nrow(omega)
+  psi_idx[, idx := rep(1:m, each = length_psi_i)]
+  
+  synth_cnt <- synth_cat <- NULL
+  # Draw normal data
+  if (any(is.na(psi$prob))) {
+    psi_cnt <- psi_idx[is.na(prob)]
+    psi_cnt[, dat := rtruncnorm(nrow(psi_cnt), a = min, b = max,
+                                mean = mu, sd = sigma)]
+    synth_cnt <- dcast(psi_cnt, idx ~ variable, value.var = 'dat')
+    synth_cnt[, idx := NULL]
+  }
+  # Draw categorical data
+  if (any(!is.na(psi$prob))) {
+    psi_cat <- psi_idx[!is.na(prob)]
+    psi_cat[, dat := sample(value, 1, prob = prob), by = .(idx, variable)]
+    synth_cat <- dcast(unique(psi_cat[, .(idx, variable, dat)]), 
+                     idx ~ variable, value.var = 'dat')
+    synth_cat[, idx := NULL]
+  }
+  
+  # Export
+  x_synth <- cbind(synth_cnt, synth_cat)
+  return(x_synth)
   
 }
 
