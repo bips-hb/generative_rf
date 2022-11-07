@@ -94,7 +94,7 @@ adversarial_rf <- function(
 
 # Density estimator
 forde <- function(arf, x, alpha = 0.01) {
-  # Identify factors, if any
+  # Prelimz
   x <- as.data.frame(x)
   n <- nrow(x)
   d <- ncol(x)
@@ -111,94 +111,76 @@ forde <- function(arf, x, alpha = 0.01) {
     )
   }
   factor_cols <- sapply(x, is.factor)
+  num_trees <- arf$num.trees
   
-  # Extract leaf bounds
-  bnds_cnt <- bnds_cat <- NULL
-  if (any(!factor_cols)) {
-    x_cnt <- as.matrix(x[, !factor_cols, drop = FALSE])
-    d_cnt <- ncol(x_cnt)
-    bnds_cnt <- data.table(
-      'nodeID' = NA_integer_,
-      'variable' = rep(colnames(x_cnt), times = 2),
-      'value' = c(apply(x_cnt, 2, min), apply(x_cnt, 2, max)),
-      'bound' = rep(c('lo', 'hi'), each = d_cnt)
-    )
+  # Compute leaf bounds
+  bnds <- foreach(b = 1:num_trees, .combine = rbind) %do% {
+    num_nodes <- length(arf$forest$split.varIDs[[b]])
+    lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
+    ub <- matrix(Inf, nrow = num_nodes, ncol = d)
+    for (i in 1:num_nodes) {
+      left_child <- arf$forest$child.nodeIDs[[b]][[1]][i] + 1
+      right_child <- arf$forest$child.nodeIDs[[b]][[2]][i] + 1
+      splitvarID <- arf$forest$split.varIDs[[b]][i] + 1
+      splitval <- arf$forest$split.value[[b]][i]
+      if (left_child > 1) {
+        ub[left_child, ] <- ub[i, ]
+        ub[right_child, ] <- ub[i, ]
+        lb[left_child, ] <- lb[i, ]
+        lb[right_child, ] <- lb[i, ]
+        ub[left_child, splitvarID] <- splitval
+        lb[right_child, splitvarID] <- splitval
+      }
+    }
+    b_leaves <- which(arf$forest$child.nodeIDs[[b]][[1]] == 0) - 1
+    cbind(b, b_leaves, lb[b_leaves, ], ub[b_leaves, ])
   }
-  if (any(factor_cols)) {
-    x_cat <- x[, factor_cols, drop = FALSE]
-    d_cat <- ncol(x_cat)
-    bnds_cat <- data.table(
-      'nodeID' = NA_integer_,
-      'variable' = rep(colnames(x_cat), times = 2),
-      'value' = c(rep(0, times = d_cat), 
-                  sapply(seq_along(x_cat), function(j) length(levels(x_cat[, j])))),
-      'bound' = rep(c('lo', 'hi'), each = d_cat)
-    )
-  }
-  bounds <- rbind(bnds_cnt, bnds_cat)
+  lo <- as.data.table(bnds[, 1:(2 + d)])
+  hi <- as.data.table(bnds[, c(1:2, (2 + d + 1):(2 + 2 * d))])
+  colnames(lo) <- colnames(hi) <- c('tree', 'leaf', arf$forest$independent.variable.names)
+  lo <- melt(lo, id.vars = c('tree', 'leaf'), value.name = 'min')
+  hi <- melt(hi, id.vars = c('tree', 'leaf'), value.name = 'max')
+  bnds <- merge(lo, hi, by = c('tree', 'leaf', 'variable'))
   
   # Get terminal nodes for all observations
   pred <- predict(arf, x, type = 'terminalNodes')$predictions
   
-  # Complete leaf list
-  leaves <- foreach(b = 1:num_trees, .combine = rbind) %do% {
-    out <- as.data.table(treeInfo(arf, b))[, tree := b]
-    out <- out[!is.na(prediction), .(tree, nodeID)]
-    colnames(out)[2] <- 'leaf'
-    out[, cvg := sum(pred[, b] == leaf) / n, by = leaf]
-    out <- out[cvg > 0]
-    return(out)
-  }
-  psi_cnt <- psi_cat <- NULL
+  # Leaf list
+  leaves <- unique(bnds[, .(tree, leaf)])
+  leaves[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
+  leaves <- leaves[cvg > 0]
   
   # Compute parameters for each leaf
+  psi_cnt <- psi_cat <- NULL
   psi_fn <- function(i) {
     # Localize
     b <- leaves[i, tree]
     l <- leaves[i, leaf]
+    bnds_bl <- bnds[tree == b & leaf == l]
     idx <- pred[, b] == l
-    # Trace the path for each leaf to get extrema
-    tree <- as.data.table(treeInfo(arf, b))
-    path <- tree[nodeID == l]
-    path[, bound := NA_character_]
-    node <- l
-    while(node > 0) {
-      tmp <- tree[leftChild == node | rightChild == node, ]
-      tmp[, bound := ifelse(leftChild == node, 'hi', 'lo')]
-      path <- rbind(tmp, path)
-      node <- tmp$nodeID
-    }
-    path <- na.omit(path[, .(nodeID, splitvarName, splitval, bound)])
-    colnames(path)[2:3] <- c('variable', 'value')
-    path <- rbind(path, bounds)
-    inf <- path[bound == 'lo', max(value), by = variable]
-    sup <- path[bound == 'hi', min(value), by = variable]
-    psi1 <- merge(inf, sup, by = 'variable')
-    colnames(psi1)[c(2, 3)] <- c('min', 'max')
+    
     # Calculate mean and std dev for continuous features
     if (any(!factor_cols)) {
       vars <- colnames(x)[!factor_cols]
       x_leaf <- as.matrix(x[idx, !factor_cols, drop = FALSE])
-      psi2 <- data.table(
+      psi_cnt <- data.table(
         'variable' = vars, 
         'mu' = colMeans(x_leaf), 
         'sigma' = colSds(x_leaf),
         'value' = NA_character_, 'prob' = NA_real_
       )
-      psi_cnt <- merge(psi1, psi2, by = 'variable')
     } 
     # Calculate class probabilities for categorical features
     if (any(factor_cols)) {
       psi_cat <- foreach(j = which(factor_cols), .combine = rbind) %do% {
         k <- length(levels(x[[j]]))
         xj_leaf <- x[idx, j]
-        if (psi1[variable == colnames(x)[j], max - min] <= 1) {
+        if (bnds_bl[variable == colnames(x)[j], max - min] <= 1) {
           alpha <- 0
         }
         pr <- (table(xj_leaf) + alpha) / (length(xj_leaf) + alpha * k)
         data.table(
           'variable' = colnames(x)[j], 
-          'min' = NA_real_, 'max' = NA_real_,
           'mu' = NA_real_, 'sigma' = NA_real_,
           'value' = levels(x[[j]]), 
           'prob' = as.numeric(pr)
@@ -206,22 +188,12 @@ forde <- function(arf, x, alpha = 0.01) {
       }
     } 
     # Put it all together, export
-    psi <- rbind(psi_cnt, psi_cat)
-    psi[, tree := b][, leaf := l]
+    psi <- merge(rbind(psi_cnt, psi_cat), bnds_bl)
     psi <- psi[, .(tree, leaf, variable, min, max, mu, sigma, value, prob)]
     return(psi)
   }
   # Loop over leaves in parallel
   psi <- foreach(ii = 1:nrow(leaves), .combine = rbind) %dopar% psi_fn(ii)
-  # Remove fake bounds
-  if (any(!factor_cols)) {
-    for (j in colnames(x)[!factor_cols]) {
-      min_j <- bounds[variable == j & bound == 'lo', value]
-      max_j <- bounds[variable == j & bound == 'hi', value]
-      psi[variable == j & min == min_j, min := -Inf]
-      psi[variable == j & max == max_j, max := Inf]
-    }
-  }
   
   # BS hack for zero-variance points (this will be resolved with min.bucket)
   psi[is.na(prob) & is.na(sigma), sigma := 0.01]
