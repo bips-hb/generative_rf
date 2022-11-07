@@ -157,7 +157,6 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   leaves <- unique(bnds[, .(tree, leaf)])
   leaves[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
   bnds <- merge(bnds, leaves[cvg > 0], by = c('tree', 'leaf'))
-  
   # Compute parameters for each leaf
   psi_cnt <- psi_cat <- NULL
   psi_fn <- function(i) {
@@ -224,8 +223,8 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
   }
   # Compute log-likelihood
-  loglik <- foreach(i = 1:n, .combine = c) %dopar% {
-    tree_lik <- foreach(b = 1:num_trees, .combine = c) %do% {
+  loglik_fn <- function(i) {
+    tree_lik <- sapply(1:num_trees, function(b) {
       cvg_b <- leaves[tree == b & leaf == pred[i, b], cvg]
       if (cvg_b == 0) {
         ll_b <- 0
@@ -244,9 +243,10 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
         ll_b <- sum(j_lik) * cvg_b
       }
       return(ll_b)
-    }
+    })
     return(mean(tree_lik))
   }
+  loglik <- foreach(ii = 1:n, .combine = c) %dopar% loglik_fn(ii)
   # Export
   out <- list('psi' = psi, 'loglik' = loglik)
   return(out)
