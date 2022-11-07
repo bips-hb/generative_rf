@@ -115,40 +115,41 @@ forde <- function(arf, x, alpha = 0.01) {
   
   # Compute leaf bounds
   bnds <- foreach(b = 1:num_trees, .combine = rbind) %do% {
-    num_nodes <- length(arf$forest$split.varIDs[[b]])
+    tree_df <- as.data.table(treeInfo(arf, b))
+    num_nodes <- nrow(tree_df)
     lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
     ub <- matrix(Inf, nrow = num_nodes, ncol = d)
+    colnames(lb) <- colnames(ub) <- colnames(x)
     for (i in 1:num_nodes) {
-      left_child <- arf$forest$child.nodeIDs[[b]][[1]][i] + 1
-      right_child <- arf$forest$child.nodeIDs[[b]][[2]][i] + 1
-      splitvarID <- arf$forest$split.varIDs[[b]][i] + 1
-      splitval <- arf$forest$split.value[[b]][i]
-      if (left_child > 1) {
-        ub[left_child, ] <- ub[i, ]
-        ub[right_child, ] <- ub[i, ]
-        lb[left_child, ] <- lb[i, ]
-        lb[right_child, ] <- lb[i, ]
-        ub[left_child, splitvarID] <- splitval
-        lb[right_child, splitvarID] <- splitval
+      left_child <- tree_df[i, leftChild + 1L]
+      right_child <- tree_df[i, rightChild + 1L]
+      splitvar_name <- tree_df[i, splitvarName]
+      splitval <- tree_df[i, splitval]
+      if (!is.na(left_child)) {
+        ub[left_child, ] <- ub[right_child, ] <- ub[i, ]
+        lb[left_child, ] <- lb[right_child, ] <- lb[i, ]
+        ub[left_child, splitvar_name] <- splitval
+        lb[right_child, splitvar_name] <- splitval
       }
     }
-    b_leaves <- which(arf$forest$child.nodeIDs[[b]][[1]] == 0) - 1
+    b_leaves <- tree_df[terminal == TRUE, nodeID + 1L]
     cbind(b, b_leaves, lb[b_leaves, ], ub[b_leaves, ])
   }
+  colnames(bnds)[1:2] <- c('tree', 'leaf')
   lo <- as.data.table(bnds[, 1:(2 + d)])
   hi <- as.data.table(bnds[, c(1:2, (2 + d + 1):(2 + 2 * d))])
-  colnames(lo) <- colnames(hi) <- c('tree', 'leaf', arf$forest$independent.variable.names)
   lo <- melt(lo, id.vars = c('tree', 'leaf'), value.name = 'min')
   hi <- melt(hi, id.vars = c('tree', 'leaf'), value.name = 'max')
   bnds <- merge(lo, hi, by = c('tree', 'leaf', 'variable'))
   
   # Get terminal nodes for all observations
-  pred <- predict(arf, x, type = 'terminalNodes')$predictions
+  pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
   
   # Leaf list
   leaves <- unique(bnds[, .(tree, leaf)])
   leaves[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
   leaves <- leaves[cvg > 0]
+  bnds <- merge(bnds, leaves[, .(tree, leaf)], by = c('tree', 'leaf'))
   
   # Compute parameters for each leaf
   psi_cnt <- psi_cat <- NULL
@@ -158,7 +159,6 @@ forde <- function(arf, x, alpha = 0.01) {
     l <- leaves[i, leaf]
     bnds_bl <- bnds[tree == b & leaf == l]
     idx <- pred[, b] == l
-    
     # Calculate mean and std dev for continuous features
     if (any(!factor_cols)) {
       vars <- colnames(x)[!factor_cols]
@@ -188,7 +188,7 @@ forde <- function(arf, x, alpha = 0.01) {
       }
     } 
     # Put it all together, export
-    psi <- merge(rbind(psi_cnt, psi_cat), bnds_bl)
+    psi <- merge(rbind(psi_cnt, psi_cat), bnds_bl, by = 'variable')
     psi <- psi[, .(tree, leaf, variable, min, max, mu, sigma, value, prob)]
     return(psi)
   }
