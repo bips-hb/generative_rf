@@ -151,11 +151,13 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   lo <- melt(lo, id.vars = c('tree', 'leaf'), value.name = 'min')
   hi <- melt(hi, id.vars = c('tree', 'leaf'), value.name = 'max')
   bnds <- merge(lo, hi, by = c('tree', 'leaf', 'variable'))
+  rm(lo, hi)
   # Get terminal nodes for all observations
   pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
   # Enumerate leaves
   leaves <- unique(bnds[, .(tree, leaf)])
   leaves[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
+  n_leaves <- leaves[cvg > 0, .N]
   bnds <- merge(bnds, leaves[cvg > 0], by = c('tree', 'leaf'))
   # Compute parameters for each leaf
   psi_cnt <- psi_cat <- NULL
@@ -221,34 +223,48 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     }
     factor_cols <- sapply(x, is.factor)
     pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
+    psi <- foreach(b = 1:num_trees, .combine = rbind) %:%
+      foreach(i = 1:n, .combine = rbind) %do% {
+        psi[tree == b & leaf == pred[i, b]]
+      }
   }
   # Compute log-likelihood
-  loglik_fn <- function(i) {
-    tree_lik <- sapply(1:num_trees, function(b) {
-      cvg_b <- leaves[tree == b & leaf == pred[i, b], cvg]
-      if (cvg_b == 0) {
-        ll_b <- 0
-      } else {
-        psi_l <- psi[tree == b & leaf == pred[i, b]]
-        j_lik <- sapply(1:d, function(j) {
-          psi_j <- psi_l[variable == colnames(x)[j]]
-          if (j %in% which(!factor_cols)) {
-            ll_j <- log(dtruncnorm(x[i, j], a = psi_j$min, b = psi_j$max, 
-                                   mean = psi_j$mu, sd = psi_j$sigma))
-          } else {
-            ll_j <- psi_j[value == x[i, j], log(prob)]
-          }
-          return(ll_j)
-        })
-        ll_b <- sum(j_lik) * cvg_b
-      }
-      return(ll_b)
-    })
-    return(mean(tree_lik))
+  lik_cnt <- lik_cat <- NULL
+  pred_dt <- as.data.table(pred)[, idx := .I]
+  pred_dt <- melt(pred_dt, id.vars = 'idx', value.name = 'leaf')
+  pred_dt[, tree := as.numeric(gsub('V', '', variable))]
+  pred_dt[, variable := NULL]
+  if (any(is.na(psi$prob))) {  # Continuous
+    psi_cnt <- psi[is.na(prob)]
+    psi_cnt[, c('value', 'prob') := NULL]
+    x_cnt <- as.data.table(x[, !factor_cols, drop = FALSE])[, idx := .I]
+    x_cnt <- melt(x_cnt, measure.vars = colnames(x)[!factor_cols])
+    tmp <- merge(x_cnt, pred_dt, by = 'idx', all = TRUE, allow.cartesian = TRUE)
+    psi_cnt <- merge(tmp, psi_cnt, by = c('tree', 'leaf', 'variable'), all.x = TRUE)
+    psi_cnt[, ll := log(dtruncnorm(value, a = min, b = max, mean = mu, sd = sigma))]
+    lik_cnt <- psi_cnt[, .(tree, leaf, cvg, idx, variable, ll)]
+    rm(psi_cnt, x_cnt, tmp)
   }
-  loglik <- foreach(ii = 1:n, .combine = c) %dopar% loglik_fn(ii)
+  if (any(!is.na(psi$prob))) { # Categorical
+    psi_cat <- psi[!is.na(prob)]
+    psi_cat[, c('mu', 'sigma', 'min', 'max') := NULL]
+    x_cat <- as.data.table(x[, factor_cols, drop = FALSE])[, idx := .I]
+    x_cat <- melt(x_cat, measure.vars = colnames(x)[factor_cols])
+    tmp <- merge(x_cat, pred_dt, by = 'idx', all = TRUE, allow.cartesian = TRUE)
+    psi_cat <- merge(tmp, psi_cat, by = c('tree', 'leaf', 'variable', 'value'), 
+                     all.x = TRUE)
+    psi_cat[, ll := log(prob)]
+    lik_cat <- psi_cat[, .(tree, leaf, cvg, idx, variable, ll)]
+    rm(psi_cat, x_cat, tmp)
+  }
+  rm(pred_dt)
+  lik <- rbind(lik_cnt, lik_cat)
+  lik[, ll_b := sum(ll) * cvg, by = .(idx, tree, leaf)]
+  lik <- unique(lik[, .(tree, leaf, idx, ll_b)])
+  lik[, out := mean(ll_b), by = idx]
+  lik <- unique(lik[order(idx), .(idx, out)])
   # Export
-  out <- list('psi' = psi, 'loglik' = loglik)
+  out <- list('psi' = psi, 'loglik' = lik$out)
   return(out)
 }
 
