@@ -123,88 +123,63 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   }
   factor_cols <- sapply(x, is.factor)
   num_trees <- arf$num.trees
-  # Compute leaf bounds
-  bnds <- foreach(b = 1:num_trees, .combine = rbind) %do% {
-    tree_df <- as.data.table(treeInfo(arf, b))
-    num_nodes <- nrow(tree_df)
-    lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
-    ub <- matrix(Inf, nrow = num_nodes, ncol = d)
-    colnames(lb) <- colnames(ub) <- colnames(x)
-    for (i in 1:num_nodes) {
-      left_child <- tree_df[i, leftChild + 1L]
-      right_child <- tree_df[i, rightChild + 1L]
-      splitvar_name <- tree_df[i, splitvarName]
-      splitval <- tree_df[i, splitval]
-      if (!is.na(left_child)) {
-        ub[left_child, ] <- ub[right_child, ] <- ub[i, ]
-        lb[left_child, ] <- lb[right_child, ] <- lb[i, ]
-        ub[left_child, splitvar_name] <- splitval
-        lb[right_child, splitvar_name] <- splitval
-      }
-    }
-    b_leaves <- tree_df[terminal == TRUE, nodeID + 1L]
-    cbind(b, b_leaves, lb[b_leaves, ], ub[b_leaves, ])
-  }
-  colnames(bnds)[1:2] <- c('tree', 'leaf')
-  lo <- as.data.table(bnds[, 1:(2 + d)])
-  hi <- as.data.table(bnds[, c(1:2, (2 + d + 1):(2 + 2 * d))])
-  lo <- melt(lo, id.vars = c('tree', 'leaf'), value.name = 'min')
-  hi <- melt(hi, id.vars = c('tree', 'leaf'), value.name = 'max')
-  bnds <- merge(lo, hi, by = c('tree', 'leaf', 'variable'))
-  rm(lo, hi)
   # Get terminal nodes for all observations
   pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
-  # Enumerate leaves
-  leaves <- unique(bnds[, .(tree, leaf)])
-  leaves[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
-  n_leaves <- leaves[cvg > 0, .N]
-  bnds <- merge(bnds, leaves[cvg > 0], by = c('tree', 'leaf'))
-  # Compute parameters for each leaf
-  psi_cnt <- psi_cat <- NULL
-  psi_fn <- function(i) {
-    # Localize
-    b <- leaves[i, tree]
-    l <- leaves[i, leaf]
-    bnds_bl <- bnds[tree == b & leaf == l]
-    idx <- pred[, b] == l
-    # Calculate mean and std dev for continuous features
-    if (any(!factor_cols)) {
-      vars <- colnames(x)[!factor_cols]
-      x_leaf <- as.matrix(x[idx, !factor_cols, drop = FALSE])
-      psi_cnt <- data.table(
-        'variable' = vars, 
-        'mu' = colMeans(x_leaf), 
-        'sigma' = colSds(x_leaf),
-        'value' = NA_character_, 'prob' = NA_real_
-      )
-    } 
-    # Calculate class probabilities for categorical features
-    if (any(factor_cols)) {
-      psi_cat <- foreach(j = which(factor_cols), .combine = rbind) %do% {
-        k <- length(levels(x[[j]]))
-        xj_leaf <- x[idx, j]
-        if (bnds_bl[variable == colnames(x)[j], max - min] <= 1) {
-          alpha <- 0
-        }
-        pr <- (table(xj_leaf) + alpha) / (length(xj_leaf) + alpha * k)
-        data.table(
-          'variable' = colnames(x)[j], 
-          'mu' = NA_real_, 'sigma' = NA_real_,
-          'value' = levels(x[[j]]), 
-          'prob' = as.numeric(pr)
-        )
+  # Compute leaf bounds and coverage
+  bnds <- foreach(tree = 1:num_trees, .combine = rbind) %do% {
+    num_nodes <- length(arf$forest$split.varIDs[[tree]])
+    lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
+    ub <- matrix(Inf, nrow = num_nodes, ncol = d)
+    
+    for (i in 1:num_nodes) {
+      left_child <- arf$forest$child.nodeIDs[[tree]][[1]][i] + 1
+      right_child <- arf$forest$child.nodeIDs[[tree]][[2]][i] + 1
+      splitvarID <- arf$forest$split.varIDs[[tree]][i] + 1
+      splitval <- arf$forest$split.value[[tree]][i]
+      if (left_child > 1) {
+        ub[left_child, ] <- ub[i, ]
+        ub[right_child, ] <- ub[i, ]
+        lb[left_child, ] <- lb[i, ]
+        lb[right_child, ] <- lb[i, ]
+        ub[left_child, splitvarID] <- splitval
+        lb[right_child, splitvarID] <- splitval
       }
-    } 
-    # Put it all together, export
-    psi <- merge(rbind(psi_cnt, psi_cat), bnds_bl, by = 'variable')
-    psi <- psi[, .(tree, leaf, cvg, variable, min, max, mu, sigma, value, prob)]
-    return(psi)
+    }
+    leaves <- which(arf$forest$child.nodeIDs[[tree]][[1]] == 0) 
+    colnames(lb) <- arf$forest$independent.variable.names
+    colnames(ub) <- arf$forest$independent.variable.names
+    merge(melt(data.table(tree = tree, leaf = leaves, lb[leaves, ]), 
+               id.vars = c("tree", "leaf"), value.name = "min"), 
+          melt(data.table(tree = tree, leaf = leaves, ub[leaves, ]), 
+               id.vars = c("tree", "leaf"), value.name = "max"), 
+          by = c("tree", "leaf", "variable"))
   }
-  # Loop over leaves in parallel
-  psi <- foreach(ii = leaves[, which(cvg > 0)], .combine = rbind) %dopar% psi_fn(ii)
-  # BS hack for zero-variance points (this will be resolved with min.bucket)
-  psi[is.na(prob) & is.na(sigma), sigma := 0.01]
-  psi[sigma == 0, sigma := 0.01]
+  bnds[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
+  bnds <- bnds[cvg > 0, ]
+  # Compute parameters for each leaf
+  # Calculate mean and std dev for continuous features
+  if (any(!factor_cols)) {
+    psi_cnt <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
+      dt <- data.table(tree = tree, x[, !factor_cols, drop = FALSE], leaf = pred[, tree])
+      long <- melt(dt, id.vars = c("tree", "leaf"))
+      long[, list(cat = NA_character_, prob = NA_real_, mean = mean(value), sd = sd(value)), by = .(tree, leaf, variable)]
+    }
+  } else {
+    psi_cnt <- NULL
+  }
+  # Calculate class probabilities for categorical features
+  if (any(factor_cols)) {
+    psi_cat <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
+      dt <- data.table(tree = tree, x[, factor_cols, drop = FALSE], leaf = pred[, tree])
+      long <- melt(dt, id.vars = c("tree", "leaf"), value.factor = FALSE, value.name = "cat")
+      long[, count := .N, by = .(tree, leaf, variable)]
+      setDT(long)[, list(prob = .N/count, mean = NA_real_, sd = NA_real_), by = .(tree, leaf, variable, cat)]
+    }
+  } else {
+    psi_cat <- NULL
+  }
+  psi <- merge(rbind(psi_cnt, psi_cat), bnds, by = c("tree", "leaf", "variable"))
+  rm(psi_cnt, psi_cat)
   # Optionally prep test data
   if (!is.null(x_tst)) {
     x <- as.data.frame(x_tst)
@@ -223,48 +198,44 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     }
     factor_cols <- sapply(x, is.factor)
     pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
-    psi <- foreach(b = 1:num_trees, .combine = rbind) %:%
-      foreach(i = 1:n, .combine = rbind) %do% {
-        psi[tree == b & leaf == pred[i, b]]
-      }
   }
   # Compute log-likelihood
-  lik_cnt <- lik_cat <- NULL
-  pred_dt <- as.data.table(pred)[, idx := .I]
-  pred_dt <- melt(pred_dt, id.vars = 'idx', value.name = 'leaf')
-  pred_dt[, tree := as.numeric(gsub('V', '', variable))]
-  pred_dt[, variable := NULL]
-  if (any(is.na(psi$prob))) {  # Continuous
-    psi_cnt <- psi[is.na(prob)]
-    psi_cnt[, c('value', 'prob') := NULL]
-    x_cnt <- as.data.table(x[, !factor_cols, drop = FALSE])[, idx := .I]
-    x_cnt <- melt(x_cnt, measure.vars = colnames(x)[!factor_cols])
-    tmp <- merge(x_cnt, pred_dt, by = 'idx', all = TRUE, allow.cartesian = TRUE)
-    psi_cnt <- merge(tmp, psi_cnt, by = c('tree', 'leaf', 'variable'), all.x = TRUE)
-    psi_cnt[, ll := log(dtruncnorm(value, a = min, b = max, mean = mu, sd = sigma))]
-    lik_cnt <- psi_cnt[, .(tree, leaf, cvg, idx, variable, ll)]
-    rm(psi_cnt, x_cnt, tmp)
+  preds <- rbindlist(lapply(1:ncol(pred), function(i) {
+    data.table(tree = i, obs = 1:nrow(pred), leaf = pred[, i])
+  }))
+  
+  if (any(!factor_cols)) {
+    x_long_cnt <- melt(data.table(obs = 1:nrow(x), x[, !factor_cols, drop = FALSE]), id.vars = "obs")
+    preds_x_cnt <- merge(preds, x_long_cnt, by = "obs", allow.cartesian = TRUE)
+    psi_x_cnt <- merge(psi[!is.na(sd), .(tree, leaf, cvg, variable, min, max, mean, sd)], 
+                       preds_x_cnt, by = c("tree", "leaf", "variable"))
+    psi_x_cnt[, loglik := log(dtruncnorm(value, a = min, b = max, 
+                                         mean = mean, sd = sd))]
+    psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, loglik)]
+  } else {
+    psi_x_cnt <- NULL
   }
-  if (any(!is.na(psi$prob))) { # Categorical
-    psi_cat <- psi[!is.na(prob)]
-    psi_cat[, c('mu', 'sigma', 'min', 'max') := NULL]
-    x_cat <- as.data.table(x[, factor_cols, drop = FALSE])[, idx := .I]
-    x_cat <- melt(x_cat, measure.vars = colnames(x)[factor_cols])
-    tmp <- merge(x_cat, pred_dt, by = 'idx', all = TRUE, allow.cartesian = TRUE)
-    psi_cat <- merge(tmp, psi_cat, by = c('tree', 'leaf', 'variable', 'value'), 
-                     all.x = TRUE)
-    psi_cat[, ll := log(prob)]
-    lik_cat <- psi_cat[, .(tree, leaf, cvg, idx, variable, ll)]
-    rm(psi_cat, x_cat, tmp)
+  
+  if (any(factor_cols)) {
+    x_long_cat <- melt(data.table(obs = 1:nrow(x), x[, factor_cols, drop = FALSE]), 
+                       id.vars = "obs", value.name = "cat")
+    preds_x_cat <- merge(preds, x_long_cat, by = "obs", allow.cartesian = TRUE)
+    psi_x_cat <- merge(psi[!is.na(cat), .(tree, leaf, cvg, variable, cat, prob)], 
+                       preds_x_cat, by = c("tree", "leaf", "variable", "cat"), 
+                       allow.cartesian = TRUE)
+    psi_x_cat[, loglik := log(prob)]
+    psi_x_cat <- psi_x_cat[, .(tree, obs, cvg, loglik)]
+  } else {
+    psi_x_cat <- NULL
   }
-  rm(pred_dt)
-  lik <- rbind(lik_cnt, lik_cat)
-  lik[, ll_b := sum(ll) * cvg, by = .(idx, tree, leaf)]
-  lik <- unique(lik[, .(tree, leaf, idx, ll_b)])
-  lik[, out := mean(ll_b), by = idx]
-  lik <- unique(lik[order(idx), .(idx, out)])
+  psi_x <- rbind(psi_x_cnt, psi_x_cat)
+  rm(psi_x_cnt, psi_x_cat)
+  
+  loglik <- psi_x[, sum(loglik * cvg), by = .(obs, tree)]
+  loglik <- loglik[, mean(V1), by = obs]
+  loglik <- loglik[order(obs), V1]
   # Export
-  out <- list('psi' = psi, 'loglik' = lik$out)
+  out <- list('psi' = psi, 'loglik' = loglik)
   return(out)
 }
 
