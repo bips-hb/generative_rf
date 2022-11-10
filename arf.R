@@ -1,3 +1,8 @@
+
+library(ranger)
+library(matrixStats)
+library(truncnorm)
+
 #' Adversarial random forest
 #' 
 #' Implements an adversarial RF to learn independence-inducing splits.
