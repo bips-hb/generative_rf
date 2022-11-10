@@ -22,6 +22,7 @@ adversarial_rf <- function(
     num_trees = 10, 
     min_node_size = 5, 
     parallel = TRUE,
+    max_iters = 10,
     ...) {
   # Identify factors, if any
   x_real <- as.data.frame(x)
@@ -73,7 +74,7 @@ adversarial_rf <- function(
                     respect.unordered.factors = TRUE, ...)
       # Evaluate
       acc <- 1 - rf1$prediction.error
-      if (acc <= 0.5 + delta) {
+      if (acc <= 0.5 + delta | iters > max_iters) {
         converged <- TRUE
       } else {
         rf0 <- rf1
@@ -232,8 +233,7 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   lik_cnt <- lik_cat <- NULL
   pred_dt <- as.data.table(pred)[, idx := .I]
   pred_dt <- melt(pred_dt, id.vars = 'idx', value.name = 'leaf')
-  pred_dt[, tree := as.numeric(gsub('V', '', variable))]
-  pred_dt[, variable := NULL]
+  pred_dt[, tree := as.numeric(gsub('V', '', variable))][, variable := NULL]
   if (any(is.na(psi$prob))) {  # Continuous
     psi_cnt <- psi[is.na(prob)]
     psi_cnt[, c('value', 'prob') := NULL]
