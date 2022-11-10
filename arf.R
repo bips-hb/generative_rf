@@ -80,7 +80,7 @@ adversarial_rf <- function(
                     respect.unordered.factors = TRUE, ...)
       # Evaluate
       acc <- 1 - rf1$prediction.error
-      if (acc <= 0.5 + delta | iters > max_iters) {
+      if (acc <= 0.5 + delta | iters >= max_iters) {
         converged <- TRUE
       } else {
         rf0 <- rf1
