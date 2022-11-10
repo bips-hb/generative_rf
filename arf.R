@@ -127,7 +127,7 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   # Get terminal nodes for all observations
   pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
   # Compute leaf bounds and coverage
-  bnds <- foreach(tree = 1:num_trees, .combine = rbind) %do% {
+  bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% {
     num_nodes <- length(arf$forest$split.varIDs[[tree]])
     lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
     ub <- matrix(Inf, nrow = num_nodes, ncol = d)
@@ -138,10 +138,8 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
       splitvarID <- arf$forest$split.varIDs[[tree]][i] + 1
       splitval <- arf$forest$split.value[[tree]][i]
       if (left_child > 1) {
-        ub[left_child, ] <- ub[i, ]
-        ub[right_child, ] <- ub[i, ]
-        lb[left_child, ] <- lb[i, ]
-        lb[right_child, ] <- lb[i, ]
+        ub[left_child, ] <- ub[right_child, ] <- ub[i, ]
+        lb[left_child, ] <- lb[right_child, ] <- lb[i, ]
         ub[left_child, splitvarID] <- splitval
         lb[right_child, splitvarID] <- splitval
       }
@@ -163,7 +161,8 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     psi_cnt <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
       dt <- data.table(tree = tree, x[, !factor_cols, drop = FALSE], leaf = pred[, tree])
       long <- melt(dt, id.vars = c("tree", "leaf"))
-      long[, list(cat = NA_character_, prob = NA_real_, mean = mean(value), sd = sd(value)), by = .(tree, leaf, variable)]
+      long[, list(cat = NA_character_, prob = NA_real_, mean = mean(value), sd = sd(value)), 
+           by = .(tree, leaf, variable)]
     }
   } else {
     psi_cnt <- NULL
@@ -174,7 +173,8 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
       dt <- data.table(tree = tree, x[, factor_cols, drop = FALSE], leaf = pred[, tree])
       long <- melt(dt, id.vars = c("tree", "leaf"), value.factor = FALSE, value.name = "cat")
       long[, count := .N, by = .(tree, leaf, variable)]
-      setDT(long)[, list(prob = .N/count, mean = NA_real_, sd = NA_real_), by = .(tree, leaf, variable, cat)]
+      setDT(long)[, list(prob = .N/count, mean = NA_real_, sd = NA_real_), 
+                  by = .(tree, leaf, variable, cat)]
     }
   } else {
     psi_cat <- NULL
@@ -200,23 +200,6 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     factor_cols <- sapply(x, is.factor)
     pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
   }
-  # Compute log-likelihood
-<<<<<<< HEAD
-  lik_cnt <- lik_cat <- NULL
-  pred_dt <- as.data.table(pred)[, idx := .I]
-  pred_dt <- melt(pred_dt, id.vars = 'idx', value.name = 'leaf')
-  pred_dt[, tree := as.numeric(gsub('V', '', variable))][, variable := NULL]
-  if (any(is.na(psi$prob))) {  # Continuous
-    psi_cnt <- psi[is.na(prob)]
-    psi_cnt[, c('value', 'prob') := NULL]
-    x_cnt <- as.data.table(x[, !factor_cols, drop = FALSE])[, idx := .I]
-    x_cnt <- melt(x_cnt, measure.vars = colnames(x)[!factor_cols])
-    tmp <- merge(x_cnt, pred_dt, by = 'idx', all = TRUE, allow.cartesian = TRUE)
-    psi_cnt <- merge(tmp, psi_cnt, by = c('tree', 'leaf', 'variable'), all.x = TRUE)
-    psi_cnt[, ll := log(dtruncnorm(value, a = min, b = max, mean = mu, sd = sigma))]
-    lik_cnt <- psi_cnt[, .(tree, leaf, cvg, idx, variable, ll)]
-    rm(psi_cnt, x_cnt, tmp)
-=======
   preds <- rbindlist(lapply(1:ncol(pred), function(i) {
     data.table(tree = i, obs = 1:nrow(pred), leaf = pred[, i])
   }))
@@ -231,7 +214,6 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, loglik)]
   } else {
     psi_x_cnt <- NULL
->>>>>>> 160f6d00718a210ce2fa2505fcb1ee6555e215d8
   }
   
   if (any(factor_cols)) {
