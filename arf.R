@@ -288,10 +288,9 @@ forge <- function(psi, m) {
   omega[, pr := cvg / max(tree)][, idx := .I]
   draws <- sample(omega$idx, size = m, replace = TRUE, prob = omega$pr)
   psi_idx <- foreach(i = draws, .combine = rbind) %do% {
-    psi[tree == omega[idx == i, tree] & leaf == omega[idx == i, leaf]]
+    out <- psi[tree == omega[idx == i, tree] & leaf == omega[idx == i, leaf]]
+    out[, idx := i]
   }
-  length_psi_i <- nrow(psi) / nrow(omega)
-  psi_idx[, idx := rep(1:m, each = length_psi_i)]
   # Simulate data
   synth_cnt <- synth_cat <- NULL
   if (any(is.na(psi$prob))) {  # Continuous
