@@ -1,16 +1,9 @@
-<<<<<<< HEAD
 library(data.table)
 library(ranger)
 library(matrixStats)
 library(truncnorm)
 library(doMC)
 registerDoMC(8)
-=======
-
-library(ranger)
-library(matrixStats)
-library(truncnorm)
->>>>>>> be05e71a108b00efd314cd28bdde45754d21079f
 
 #' Adversarial random forest
 #' 
@@ -141,11 +134,7 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   num_trees <- arf$num.trees
   # Get terminal nodes for all observations
   pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
-<<<<<<< HEAD
-  
-=======
 
->>>>>>> be05e71a108b00efd314cd28bdde45754d21079f
   # Prune leaves without real data, i.e. zero coverage, or with only one obs. (cannot estimate sd)
   for (tree in 1:num_trees) {
     leaves <- which(arf$forest$child.nodeIDs[[tree]][[1]] == 0)
@@ -254,14 +243,9 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     preds_x_cnt <- merge(preds, x_long_cnt, by = "obs", allow.cartesian = TRUE)
     psi_x_cnt <- merge(psi[!is.na(sd), .(tree, leaf, cvg, variable, min, max, mean, sd)], 
                        preds_x_cnt, by = c("tree", "leaf", "variable"))
-<<<<<<< HEAD
     psi_x_cnt[, lik := dtruncnorm(value, a = min, b = max, mean = mean, sd = sd)]
     psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, lik)]
-=======
-    psi_x_cnt[, loglik := log(dtruncnorm(value, a = min, b = max, 
-                                         mean = mean, sd = sd))]
-    psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, loglik)]
->>>>>>> be05e71a108b00efd314cd28bdde45754d21079f
+
   } else {
     psi_x_cnt <- NULL
   }
@@ -273,26 +257,15 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
     psi_x_cat <- merge(psi[!is.na(cat), .(tree, leaf, cvg, variable, cat, prob)], 
                        preds_x_cat, by = c("tree", "leaf", "variable", "cat"), 
                        allow.cartesian = TRUE)
-<<<<<<< HEAD
     psi_x_cat[, lik := prob]
     psi_x_cat <- psi_x_cat[, .(tree, obs, cvg, lik)]
-=======
-    psi_x_cat[, loglik := log(prob)]
-    psi_x_cat <- psi_x_cat[, .(tree, obs, cvg, loglik)]
->>>>>>> be05e71a108b00efd314cd28bdde45754d21079f
   } else {
     psi_x_cat <- NULL
   }
   psi_x <- rbind(psi_x_cnt, psi_x_cat)
   rm(psi_x_cnt, psi_x_cat)
-  
-<<<<<<< HEAD
   loglik <- psi_x[, prod(lik) * cvg, by = .(obs, tree)]
   loglik <- loglik[, log(mean(V1)), by = obs]
-=======
-  loglik <- psi_x[, sum(loglik * cvg), by = .(obs, tree)]
-  loglik <- loglik[, mean(V1), by = obs]
->>>>>>> be05e71a108b00efd314cd28bdde45754d21079f
   loglik <- loglik[order(obs), V1]
   # Export
   out <- list('psi' = psi, 'loglik' = loglik)
@@ -341,11 +314,6 @@ forge <- function(psi, m) {
   # Export
   x_synth <- cbind(synth_cnt, synth_cat)
   return(x_synth)
-<<<<<<< HEAD
-}
-=======
 }
 
 
-
->>>>>>> be05e71a108b00efd314cd28bdde45754d21079f
