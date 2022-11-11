@@ -187,14 +187,13 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
           by = c("tree", "leaf", "variable"))
   }
   bnds[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
-  #bnds <- bnds[cvg > 0, ]
   # Compute parameters for each leaf
   # Calculate mean and std dev for continuous features
   if (any(!factor_cols)) {
     psi_cnt <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
       dt <- data.table(tree = tree, x[, !factor_cols, drop = FALSE], leaf = pred[, tree])
       long <- melt(dt, id.vars = c("tree", "leaf"))
-      long[, list(cat = NA_character_, prob = NA_real_, mean = mean(value), sd = sd(value)), 
+      long[, list(cat = NA_character_, prob = NA_real_, mu = mean(value), sigma = sd(value)), 
            by = .(tree, leaf, variable)]
     }
   } else {
@@ -206,8 +205,8 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
       dt <- data.table(tree = tree, x[, factor_cols, drop = FALSE], leaf = pred[, tree])
       long <- melt(dt, id.vars = c("tree", "leaf"), value.factor = FALSE, value.name = "cat")
       long[, count := .N, by = .(tree, leaf, variable)]
-      setDT(long)[, list(prob = .N/count, mean = NA_real_, sd = NA_real_), 
-                  by = .(tree, leaf, variable, cat)]
+      unique(setDT(long)[, list(prob = .N/count, mu = NA_real_, sigma = NA_real_), 
+                         by = .(tree, leaf, variable, cat)])
     }
   } else {
     psi_cat <- NULL
@@ -240,11 +239,10 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   if (any(!factor_cols)) {
     x_long_cnt <- melt(data.table(obs = 1:nrow(x), x[, !factor_cols, drop = FALSE]), id.vars = "obs")
     preds_x_cnt <- merge(preds, x_long_cnt, by = "obs", allow.cartesian = TRUE)
-    psi_x_cnt <- merge(psi[!is.na(sd), .(tree, leaf, cvg, variable, min, max, mean, sd)], 
+    psi_x_cnt <- merge(psi[!is.na(sigma), .(tree, leaf, cvg, variable, min, max, mu, sigma)], 
                        preds_x_cnt, by = c("tree", "leaf", "variable"))
-    psi_x_cnt[, lik := dtruncnorm(value, a = min, b = max, mean = mean, sd = sd)]
+    psi_x_cnt[, lik := dtruncnorm(value, a = min, b = max, mean = mu, sd = sigma)]
     psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, lik)]
-
   } else {
     psi_x_cnt <- NULL
   }
@@ -305,7 +303,7 @@ forge <- function(psi, m) {
   }
   if (any(!is.na(psi$prob))) { # Categorical
     psi_cat <- psi_idx[!is.na(prob)]
-    psi_cat[, dat := sample(value, 1, prob = prob), by = .(idx, variable)]
+    psi_cat[, dat := sample(cat, 1, prob = prob), by = .(idx, variable)]
     synth_cat <- dcast(unique(psi_cat[, .(idx, variable, dat)]), 
                        idx ~ variable, value.var = 'dat')
     synth_cat[, idx := NULL]
