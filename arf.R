@@ -132,6 +132,33 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   num_trees <- arf$num.trees
   # Get terminal nodes for all observations
   pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1L
+
+  # Prune leaves without real data, i.e. zero coverage, or with only one obs. (cannot estimate sd)
+  for (tree in 1:num_trees) {
+    leaves <- which(arf$forest$child.nodeIDs[[tree]][[1]] == 0)
+    to_prune <- leaves[!(leaves %in% which(tabulate(pred[, tree]) > 1))]
+    
+    while(length(to_prune) > 0) {
+      #message("Tree ", tree, ", Pruning ", paste(to_prune, collapse = " "))
+      for (tp in to_prune) {
+        # Find parents
+        parent <- which((arf$forest$child.nodeIDs[[tree]][[1]] + 1) == tp)
+        if (length(parent) > 0) {
+          # Left child
+          arf$forest$child.nodeIDs[[tree]][[1]][parent] <- arf$forest$child.nodeIDs[[tree]][[2]][parent]
+        } else {
+          # Right child
+          parent <- which((arf$forest$child.nodeIDs[[tree]][[2]] + 1) == tp)
+          arf$forest$child.nodeIDs[[tree]][[2]][parent] <- arf$forest$child.nodeIDs[[tree]][[1]][parent]
+        }
+      }
+      #to_prune_left <- which((arf$forest$child.nodeIDs[[tree]][[1]] + 1) %in% to_prune)
+      #to_prune_right <- which((arf$forest$child.nodeIDs[[tree]][[2]] + 1) %in% to_prune)
+      #to_prune <- unique(c(to_prune_left, to_prune_right))
+      to_prune <- which((arf$forest$child.nodeIDs[[tree]][[1]] + 1) %in% to_prune)
+    }
+  }
+  
   # Compute leaf bounds and coverage
   bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% {
     num_nodes <- length(arf$forest$split.varIDs[[tree]])
@@ -143,7 +170,7 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
       right_child <- arf$forest$child.nodeIDs[[tree]][[2]][i] + 1
       splitvarID <- arf$forest$split.varIDs[[tree]][i] + 1
       splitval <- arf$forest$split.value[[tree]][i]
-      if (left_child > 1) {
+      if (left_child > 1 & left_child != right_child) {
         ub[left_child, ] <- ub[right_child, ] <- ub[i, ]
         lb[left_child, ] <- lb[right_child, ] <- lb[i, ]
         ub[left_child, splitvarID] <- lb[right_child, splitvarID] <- splitval
@@ -159,7 +186,7 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
           by = c("tree", "leaf", "variable"))
   }
   bnds[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
-  bnds <- bnds[cvg > 0, ]
+  #bnds <- bnds[cvg > 0, ]
   # Compute parameters for each leaf
   # Calculate mean and std dev for continuous features
   if (any(!factor_cols)) {
@@ -209,7 +236,6 @@ forde <- function(arf, x_trn, x_tst = NULL, alpha = 0.01) {
   preds <- rbindlist(lapply(1:ncol(pred), function(i) {
     data.table(tree = i, obs = 1:nrow(pred), leaf = pred[, i])
   }))
-  
   if (any(!factor_cols)) {
     x_long_cnt <- melt(data.table(obs = 1:nrow(x), x[, !factor_cols, drop = FALSE]), id.vars = "obs")
     preds_x_cnt <- merge(preds, x_long_cnt, by = "obs", allow.cartesian = TRUE)
