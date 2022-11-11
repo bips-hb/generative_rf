@@ -22,11 +22,11 @@ est <- Rfast::mvnorm.mle(as.matrix(trn))
 -mean(mvtnorm::dmvnorm(tst, mean = est$mu, sigma = est$sigma, log = TRUE))
 
 # FORDE
-arf <- adversarial_rf(trn, num_trees = 10, min_node_size = 5, delta = 0, min.bucket = 5)
+arf <- adversarial_rf(trn, num_trees = 10, min_node_size = 10, delta = 0)
 fd <- forde(arf, x_trn = trn, x_tst = tst, alpha = 0.01)
 
 # Performance too good to be true
--mean(fd$loglik[is.finite(fd$loglik)], na.rm = TRUE)
+-mean(fd$loglik)
 
 # Many -Inf values
 table(is.finite(fd$loglik))
