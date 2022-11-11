@@ -3,7 +3,6 @@ library(data.table)
 library(doParallel)
 doParallel::registerDoParallel(20)
 library(ranger)
-library(matrixStats)
 library(truncnorm)
 source("arf.R")
 

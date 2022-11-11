@@ -1,6 +1,5 @@
 library(data.table)
 library(ranger)
-library(matrixStats)
 library(truncnorm)
 library(doMC)
 registerDoMC(8)
