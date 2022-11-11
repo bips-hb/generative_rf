@@ -287,8 +287,9 @@ forge <- function(psi, m) {
   omega <- unique(psi[, .(tree, leaf, cvg)])
   omega[, pr := cvg / max(tree)][, idx := .I]
   draws <- sample(omega$idx, size = m, replace = TRUE, prob = omega$pr)
-  psi_idx <- foreach(i = draws, .combine = rbind) %do% {
-    out <- psi[tree == omega[idx == i, tree] & leaf == omega[idx == i, leaf]]
+  psi_idx <- foreach(i = 1:m, .combine = rbind) %do% {
+    id <- draws[i]
+    out <- psi[tree == omega[idx == id, tree] & leaf == omega[idx == id, leaf]]
     out[, idx := i]
   }
   # Simulate data
