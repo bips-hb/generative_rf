@@ -1,7 +1,7 @@
 
 library(data.table)
 library(doParallel)
-doParallel::registerDoParallel(20)
+doParallel::registerDoParallel(10)
 library(ranger)
 library(truncnorm)
 source("arf.R")
@@ -18,15 +18,23 @@ tst <- matrix(Rfast::rmvnorm(n = n, mu = mu, sigma = sigma), ncol = p,
 
 # Gaussian
 est <- Rfast::mvnorm.mle(as.matrix(trn))
--mean(mvtnorm::dmvnorm(tst, mean = est$mu, sigma = est$sigma, log = TRUE))
+ll_mle <- mvtnorm::dmvnorm(tst, mean = est$mu, sigma = est$sigma, log = TRUE)
+-mean(ll_mle)
 
-# FORDE
-arf <- adversarial_rf(trn, num_trees = 10, min_node_size = 10, delta = 0)
+# Adversarial RF
+arf <- adversarial_rf(trn, num_trees = 10, min_node_size = 5, delta = 0)
 fd <- forde(arf, x_trn = trn, x_tst = tst, alpha = 0.01)
+ll_arf <- fd$loglik
+-mean(ll_arf)
 
-# Performance too good to be true
--mean(fd$loglik)
+# Any -Inf values?
+table(is.finite(ll_arf))
 
-# Many -Inf values
-table(is.finite(fd$loglik))
+# Plot
+library(ggplot2)
+df <- data.frame('MLE' = ll_mle, 'ARF' = ll_arf)
+ggplot(df, aes(MLE, ARF)) + 
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, linetype = 'dashed', color = 'ref') + 
+  theme_bw()
 
