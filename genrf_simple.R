@@ -36,7 +36,7 @@ urf <- function(x, oob = FALSE, num_trees = 10, leaf_size = 5, ...) {
   return(rf)
 }
 
-psi_fn <- function(rf, x, oob = FALSE, dist = 'normal') {
+forde_fn <- function(rf, x, oob = FALSE, dist = 'normal') {
   # Convert input to data.frame
   orig_colnames <- colnames(x)
   x_real <- data.frame(x)
