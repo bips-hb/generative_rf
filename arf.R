@@ -257,8 +257,8 @@ forde <- function(arf, x_trn, x_tst = NULL, prune = TRUE, loglik = TRUE, truncat
         psi_x_cnt[, lik := dnorm(value,  mean = mu, sd = sigma)]
       }
       psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, lik)]
+      rm(x_long_cnt, preds_x_cnt)
     } 
-    rm(x_long_cnt, preds_x_cnt)
     
     if (any(factor_cols)) {
       x_long_cat <- melt(data.table(obs = 1:nrow(x), x[, factor_cols, drop = FALSE]), 
@@ -269,8 +269,9 @@ forde <- function(arf, x_trn, x_tst = NULL, prune = TRUE, loglik = TRUE, truncat
                          allow.cartesian = TRUE)
       psi_x_cat[, lik := prob]
       psi_x_cat <- psi_x_cat[, .(tree, obs, cvg, lik)]
+      rm(x_long_cat, preds_x_cat)
     } 
-    rm(x_long_cat, preds_x_cat, preds)
+    rm(preds)
     
     psi_x <- rbind(psi_x_cnt, psi_x_cat)
     rm(psi_x_cnt, psi_x_cat)
