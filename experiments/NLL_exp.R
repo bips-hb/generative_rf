@@ -114,7 +114,7 @@ ggplot(tmp, aes(d, NLL, shape = Method, color = Method, fill = Method,
   theme_bw()
 
 # Plot: NLL by sparsity
-tmp0 <- melt(df3, id.vars = c('b', 'sparsity'), 
+tmp0 <- melt(df2, id.vars = c('b', 'sparsity'), 
              measure.vars = c('ARF', 'PWCu', 'GeF', 'PWCs'),
              variable.name = 'Method', value.name = 'NLL')
 tmp <- tmp0[, mean(NLL), by = .(sparsity, Method)]
