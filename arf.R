@@ -339,7 +339,7 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
   psi_tmp <- rbind(psi_cnt, psi_cat)
   if (is.null(psi_tmp)) {
     psi <- bnds
-    psi[, mu := NA_real_][, sigma := 0L]
+    psi[, mu := NA_real_][, sigma := 0L][, type := 'cnt']
   } else {
     psi <- merge(psi_tmp, bnds, by = c('tree', 'leaf', 'variable'))
   }
@@ -373,9 +373,6 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
     if (any(!factor_cols)) {
       x_long_cnt <- melt(data.table(obs = 1:nrow(x), x[, !factor_cols, drop = FALSE]), id.vars = 'obs')
       preds_x_cnt <- merge(preds, x_long_cnt, by = 'obs', allow.cartesian = TRUE)
-      
-      
-      
       psi_x_cnt <- merge(psi[type == 'cnt', .(tree, leaf, cvg, variable, min, max, mu, sigma)], 
                          preds_x_cnt, by = c('tree', 'leaf', 'variable'))
       if (dist == 'truncnorm') {
@@ -419,6 +416,7 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
     
     # Compute per-sample log-likelihoods, export
     loglik <- unique(psi_x[, prod(lik) * cvg, by = .(obs, tree)])
+    loglik[is.na(V1), V1 := 0]
     loglik <- loglik[, log(mean(V1)), by = obs]
     loglik <- loglik[order(obs), V1]
   } else {
