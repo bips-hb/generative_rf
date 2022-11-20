@@ -2,9 +2,7 @@
 library(data.table)
 library(ranger)
 library(truncnorm)
-library(mvtnorm)
 library(Rfast)
-library(monomvn)
 library(ggplot2)
 library(ggsci)
 library(doMC)
@@ -29,34 +27,35 @@ sim_exp <- function(b, n, d, sparsity) {
   sigma <- toeplitz(0.5^(0:(d-1)))
   
   # Create data
-  x <- matrix(Rfast::rmvnorm(n = 2 * n, mu = mu, sigma = sigma), ncol = d,
+  x <- matrix(rmvnorm(n = n + 1000, mu = mu, sigma = sigma), ncol = d,
               dimnames = list(NULL, paste0('x', 1:d)))
-  y <- rbinom(n, size = 1, prob = plogis(x %*% beta))
+  y <- rbinom(n + 1000, size = 1, prob = plogis(x %*% beta))
   
   # Split train/test
   trn_x <- x[1:n, ]
   trn_y <- y[1:n]
-  tst_x <- x[(n+1):(2*n), ]
-  tst_y <- y[(n+1):(2*n)]
+  tst_x <- x[(n+1):(n + 1000), ]
   
   # Adversarial RF
-  arf <- adversarial_rf(trn_x, max_iters = 1)
+  arf <- adversarial_rf(trn_x, max_iters = 1, parallel = FALSE)
   # Truncated normal density
-  fd_tnorm <- forde(arf, x_trn = trn_x, x_tst = tst_x, dist = 'truncnorm')
+  fd_tnorm <- forde(arf, x_trn = trn_x, x_tst = tst_x, dist = 'truncnorm',
+                    parallel = FALSE)
   # PWC unsupervised
-  fd_pwc_u <- forde(arf, x_trn = trn_x, x_tst = tst_x, dist = 'unif')
+  fd_pwc_u <- forde(arf, x_trn = trn_x, x_tst = tst_x, dist = 'unif',
+                    parallel = FALSE)
 
   # Competition
   trn_dat <- data.table(y = trn_y, trn_x)
-  rf <- ranger(y ~ ., data = trn_dat,
+  rf <- ranger(y ~ ., data = trn_dat, num.threads = 1,
                keep.inbag = TRUE, classification = TRUE, 
                respect.unordered.factors = TRUE)
   # Correia
   fd_gef <- forde(rf, x_trn = trn_x, x_tst = tst_x, dist = 'norm',
-                  prune = FALSE)
+                  prune = FALSE, parallel = FALSE)
   # PWC supervised
   fd_pwc_s <- forde(rf, x_trn = trn_x, x_tst = tst_x, dist = 'unif',
-                    prune = FALSE)
+                    prune = FALSE, parallel = FALSE)
   
   # Results
   out <- data.table(
@@ -72,19 +71,13 @@ df1 <- foreach(bb = 1:20, .combine = rbind) %:%
   foreach(nn = round(10^(seq(2, 4, length.out = 10))), .combine = rbind) %dopar%
   sim_exp(b = bb, n = nn, d = 10, sparsity = 1/2)
 
-# By data dimensionality
-df2 <- foreach(bb = 1:20, .combine = rbind) %:%
-  foreach(dd = seq(2, 200, length.out = 10), .combine = rbind) %dopar%
-  sim_exp(b = bb, n = 2000, d = dd, sparsity = 1/2)
-
-
 # By signal sparsity
-df3 <- foreach(bb = 1:20, .combine = rbind) %:%
+df2 <- foreach(bb = 1:20, .combine = rbind) %:%
   foreach(sp = seq(0, 1, by = 0.1), .combine = rbind) %dopar%
   sim_exp(b = bb, n = 2000, d = 10, sparsity = sp)
 
 
-df <- rbind(df1, df2, df3)
+df <- rbind(df1, df2)
 saveRDS(df, 'NLL_exp.rds')
 
 # Plot: NLL by sample size
@@ -94,13 +87,14 @@ tmp0 <- melt(df1, id.vars = c('b', 'n'),
 tmp <- tmp0[, mean(NLL), by = .(n, Method)]
 colnames(tmp)[3] <- 'NLL'
 tmp[, se := tmp0[, sd(NLL), by = .(n, Method)]$V1]
-ggplot(tmp, aes(n, NLL, color = Method, fill = Method, 
+ggplot(tmp, aes(n, NLL, shape = Method, color = Method, fill = Method, 
                 ymin = NLL - se, ymax = NLL + se)) + 
+  geom_point() +
   geom_path() + 
-  geom_ribbon(alpha = 0.5) + 
+  geom_ribbon(alpha = 0.25, color = NA) + 
   scale_x_log10() + 
-  scale_color_npg() +
-  scale_fill_npg() + 
+  scale_color_d3() +
+  scale_fill_d3() + 
   theme_bw()
 
 # Plot: NLL by dimensionality
@@ -110,12 +104,13 @@ tmp0 <- melt(df2, id.vars = c('b', 'd'),
 tmp <- tmp0[, mean(NLL), by = .(d, Method)]
 colnames(tmp)[3] <- 'NLL'
 tmp[, se := tmp0[, sd(NLL), by = .(d, Method)]$V1]
-ggplot(tmp, aes(d, NLL, color = Method, fill = Method, 
+ggplot(tmp, aes(d, NLL, shape = Method, color = Method, fill = Method, 
                 ymin = NLL - se, ymax = NLL + se)) + 
+  geom_point() +
   geom_path() + 
-  geom_ribbon(alpha = 0.5) + 
-  scale_color_npg() +
-  scale_fill_npg() + 
+  geom_ribbon(alpha = 0.25, color = NA) + 
+  scale_color_d3() +
+  scale_fill_d3() + 
   theme_bw()
 
 # Plot: NLL by sparsity
@@ -125,12 +120,13 @@ tmp0 <- melt(df3, id.vars = c('b', 'sparsity'),
 tmp <- tmp0[, mean(NLL), by = .(sparsity, Method)]
 colnames(tmp)[3] <- 'NLL'
 tmp[, se := tmp0[, sd(NLL), by = .(sparsity, Method)]$V1]
-ggplot(tmp, aes(sparsity, NLL, color = Method, fill = Method, 
+ggplot(tmp, aes(sparsity, NLL, shape = Method, color = Method, fill = Method, 
                 ymin = NLL - se, ymax = NLL + se)) + 
+  geom_point() +
   geom_path() + 
-  geom_ribbon(alpha = 0.5) + 
-  scale_color_npg() +
-  scale_fill_npg() + 
+  geom_ribbon(alpha = 0.25, color = NA) + 
+  scale_color_d3() +
+  scale_fill_d3() + 
   theme_bw()
 
 
