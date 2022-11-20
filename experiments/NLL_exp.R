@@ -37,7 +37,7 @@ sim_exp <- function(b, n, d, sparsity) {
   tst_x <- x[(n+1):(n + 1000), ]
   
   # Adversarial RF
-  arf <- adversarial_rf(trn_x, max_iters = 1, parallel = FALSE)
+  arf <- adversarial_rf(trn_x, num_trees = 100, max_iters = 1, parallel = FALSE)
   # Truncated normal density
   fd_tnorm <- forde(arf, x_trn = trn_x, x_tst = tst_x, dist = 'truncnorm',
                     parallel = FALSE)
@@ -47,7 +47,7 @@ sim_exp <- function(b, n, d, sparsity) {
 
   # Competition
   trn_dat <- data.table(y = trn_y, trn_x)
-  rf <- ranger(y ~ ., data = trn_dat, num.threads = 1,
+  rf <- ranger(y ~ ., data = trn_dat, num.trees = 100, num.threads = 1,
                keep.inbag = TRUE, classification = TRUE, 
                respect.unordered.factors = TRUE)
   # Correia
@@ -93,22 +93,6 @@ ggplot(tmp, aes(n, NLL, shape = Method, color = Method, fill = Method,
   geom_path() + 
   geom_ribbon(alpha = 0.25, color = NA) + 
   scale_x_log10() + 
-  scale_color_d3() +
-  scale_fill_d3() + 
-  theme_bw()
-
-# Plot: NLL by dimensionality
-tmp0 <- melt(df2, id.vars = c('b', 'd'), 
-             measure.vars = c('ARF', 'PWCu', 'GeF', 'PWCs'),
-             variable.name = 'Method', value.name = 'NLL')
-tmp <- tmp0[, mean(NLL), by = .(d, Method)]
-colnames(tmp)[3] <- 'NLL'
-tmp[, se := tmp0[, sd(NLL), by = .(d, Method)]$V1]
-ggplot(tmp, aes(d, NLL, shape = Method, color = Method, fill = Method, 
-                ymin = NLL - se, ymax = NLL + se)) + 
-  geom_point() +
-  geom_path() + 
-  geom_ribbon(alpha = 0.25, color = NA) + 
   scale_color_d3() +
   scale_fill_d3() + 
   theme_bw()
