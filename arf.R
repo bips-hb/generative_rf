@@ -16,6 +16,7 @@ registerDoMC(8)
 #' @param min_node_size Minimum size for terminal nodes.
 #' @param prune Prune leaves with insufficient real data? 
 #' @param max_iters Maximum iterations.
+#' @param parallel Fit forest in parallel?
 #' @param ... Extra parameters to be passed to \code{ranger}.
 #'
 #' 
@@ -31,6 +32,7 @@ adversarial_rf <- function(
     min_node_size = 5, 
     prune = TRUE,
     max_iters = 10,
+    parallel = TRUE,
     ...) {
   # Identify factors, if any
   x_real <- as.data.frame(x)
@@ -56,9 +58,15 @@ adversarial_rf <- function(
   dat <- rbind(data.frame(y = 1L, x_real),
                data.frame(y = 0L, x_synth))
   # Train unsupervised random forest
-  rf0 <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, 
-                num.trees = num_trees, min.node.size = min_node_size, 
-                respect.unordered.factors = TRUE, ...)
+  if (isTRUE(parallel)) {
+    rf0 <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, 
+                  num.trees = num_trees, min.node.size = min_node_size, 
+                  respect.unordered.factors = TRUE, ...)
+  } else {
+    rf0 <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, 
+                  num.trees = num_trees, min.node.size = min_node_size, 
+                  respect.unordered.factors = TRUE, num.threads = 1, ...)
+  }
   # Optionally recurse
   iters <- 1L
   acc <- 1 - rf0$prediction.error
@@ -70,7 +78,6 @@ adversarial_rf <- function(
       trees <- sample(1:num_trees, n, replace = TRUE)
       leaves <- sapply(1:n, function(i) sample(nodeIDs[, trees[i]], 1))
       
-      
       x_synth <- foreach(i = 1:n, .combine = rbind) %do% {
         tree <- sample(1:num_trees, 1)
         leaf <- sample(nodeIDs[, tree], 1)
@@ -81,9 +88,16 @@ adversarial_rf <- function(
       dat <- rbind(data.frame(y = 1L, x_real),
                    data.frame(y = 0L, x_synth))
       # Train unsupervised random forest
-      rf1 <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, 
-                    num.trees = num_trees, min.node.size = min_node_size, 
-                    respect.unordered.factors = TRUE, ...)
+      if (isTRUE(parallel)) {
+        rf1 <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, 
+                      num.trees = num_trees, min.node.size = min_node_size, 
+                      respect.unordered.factors = TRUE, ...)
+      } else {
+        rf1 <- ranger(y ~ ., dat, keep.inbag = TRUE, classification = TRUE, 
+                      num.trees = num_trees, min.node.size = min_node_size, 
+                      respect.unordered.factors = TRUE, num.threads = 1, ...)
+      }
+      
       # Evaluate
       acc <- 1 - rf1$prediction.error
       if (acc <= 0.5 + delta | iters >= max_iters) {
@@ -144,6 +158,7 @@ adversarial_rf <- function(
 #' @param prune Was pruning applied to the input \code{arf}?
 #' @param loglik Return log-likelihood of training or test data? If \code{FALSE},
 #'   function only returns leaf and distribution parameters \code{psi}. 
+#' @param parallel Compute parameters in parallel?
 #'
 #' @import ranger 
 #' @import data.table
@@ -152,7 +167,7 @@ adversarial_rf <- function(
 #' 
 
 forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1, 
-                  prune = TRUE, loglik = TRUE) {
+                  prune = TRUE, loglik = TRUE, parallel = TRUE) {
   # Prelimz
   x <- as.data.frame(x_trn)
   n <- nrow(x)
@@ -177,7 +192,7 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
     pred <- do.call('cbind', lapply(arf, function(f) {
       predict(f, x, type = 'terminalNodes')$predictions + 1
     }))
-    bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% {
+    bnd_fn <- function(tree) {
       num_nodes <- length(arf[[tree]]$forest$split.varIDs[[1]])
       lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
       ub <- matrix(Inf, nrow = num_nodes, ncol = d)
@@ -215,10 +230,15 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
                  id.vars = c('tree', 'leaf'), value.name = 'max'), 
             by = c('tree', 'leaf', 'variable'))
     }
+    if (isTRUE(parallel)) {
+      bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% bnd_fn(tree)
+    } else {
+      bnds <- foreach(tree = 1:num_trees, .combine = rbind) %do% bnd_fn(tree)
+    }
   } else {
     num_trees <- arf$num.trees
     pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1
-    bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% {
+    bnd_fn <- function(tree) {
       num_nodes <- length(arf$forest$split.varIDs[[tree]])
       lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
       ub <- matrix(Inf, nrow = num_nodes, ncol = d)
@@ -256,41 +276,58 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
                  id.vars = c('tree', 'leaf'), value.name = 'max'), 
             by = c('tree', 'leaf', 'variable'))
     }
-  }
-  if (!isTRUE(prune)) {
-    bnds[, num := sum(pred[, tree] == leaf), by = .(tree, leaf)]
-    bnds <- bnds[num > 1L][, num := NULL]
+    if (isTRUE(parallel)) {
+      bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% bnd_fn(tree)
+    } else {
+      bnds <- foreach(tree = 1:num_trees, .combine = rbind) %do% bnd_fn(tree)
+    }
   }
   bnds[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
+  if (!isTRUE(prune)) { 
+    bnds[cvg == 1/n, cvg := 0]
+  }
   
   psi_cnt <- psi_cat <- NULL
   # Calculate mean and std dev for continuous features
   if (any(!factor_cols)) {
-    psi_cnt <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
+    psi_cnt_fn <- function(tree) {
       dt <- data.table(tree = tree, x[, !factor_cols, drop = FALSE], leaf = pred[, tree])
       long <- melt(dt, id.vars = c('tree', 'leaf'))
       if (dist %in% c('norm', 'truncnorm')) {
-        long[, list(cat = NA_character_, prob = NA_real_, mu = mean(value), sigma = sd(value)), 
+        long[, list(cat = NA_character_, prob = NA_real_, mu = mean(value), sigma = sd(value),
+                    type = 'cnt'), 
              by = .(tree, leaf, variable)]
       } else if (dist == 'beta') {
-        long[, list(cat = NA_character_, prob = NA_real_, mu = mean(value), s2 = var(value)), 
+        long[, list(cat = NA_character_, prob = NA_real_, mu = mean(value), s2 = var(value),
+                    type = 'cnt'), 
              by = .(tree, leaf, variable)]
         long[, alpha := ((1 - mu) / s2 - 1 / mu) * mu^2]
         long[, beta := alpha * (1 / mu - 1)]
         long[, c('mu', 's2') := NULL]
       } else if (dist != 'unif') {
         long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, leaf, variable)]
+        long[, type := 'cnt']
       }
+    }
+    if (isTRUE(parallel)) {
+      psi_cnt <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% psi_cnt_fn(tree)
+    } else {
+      psi_cnt <- foreach(tree = 1:num_trees, .combine = rbind) %do% psi_cnt_fn(tree)
     }
   }
   # Calculate class probabilities for categorical features
   if (any(factor_cols)) {
-    psi_cat <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% { 
+    psi_cat_fn <- function(tree) {
       dt <- data.table(tree = tree, x[, factor_cols, drop = FALSE], leaf = pred[, tree])
       long <- melt(dt, id.vars = c('tree', 'leaf'), value.factor = FALSE, value.name = 'cat')
       long[, count := .N, by = .(tree, leaf, variable)]
-      unique(setDT(long)[, list(prob = .N/count, mu = NA_real_, sigma = NA_real_), 
+      unique(setDT(long)[, list(prob = .N/count, mu = NA_real_, sigma = NA_real_, type = 'cat'), 
                          by = .(tree, leaf, variable, cat)])
+    }
+    if (isTRUE(parallel)) {
+      psi_cat <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% psi_cat_fn(tree)
+    } else {
+      psi_cat <- foreach(tree = 1:num_trees, .combine = rbind) %do% psi_cat_fn(tree)
     }
   } 
   
@@ -330,13 +367,16 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
     }
     # Compute per-feature likelihoods
     psi_x_cnt <- psi_x_cat <- NULL
-    preds <- rbindlist(lapply(1:ncol(pred), function(i) {
-      data.table(tree = i, obs = 1:nrow(pred), leaf = pred[, i])
+    preds <- rbindlist(lapply(1:ncol(pred), function(b) {
+      data.table(tree = b, obs = 1:nrow(pred), leaf = pred[, b])
     }))
     if (any(!factor_cols)) {
       x_long_cnt <- melt(data.table(obs = 1:nrow(x), x[, !factor_cols, drop = FALSE]), id.vars = 'obs')
       preds_x_cnt <- merge(preds, x_long_cnt, by = 'obs', allow.cartesian = TRUE)
-      psi_x_cnt <- merge(psi[!is.na(sigma), .(tree, leaf, cvg, variable, min, max, mu, sigma)], 
+      
+      
+      
+      psi_x_cnt <- merge(psi[type == 'cnt', .(tree, leaf, cvg, variable, min, max, mu, sigma)], 
                          preds_x_cnt, by = c('tree', 'leaf', 'variable'))
       if (dist == 'truncnorm') {
         psi_x_cnt[, lik := dtruncnorm(value, a = min, b = max, mean = mu, sd = sigma)]
@@ -365,7 +405,7 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
       x_long_cat <- melt(data.table(obs = 1:nrow(x), x[, factor_cols, drop = FALSE]), 
                          id.vars = 'obs', value.name = 'cat')
       preds_x_cat <- merge(preds, x_long_cat, by = 'obs', allow.cartesian = TRUE)
-      psi_x_cat <- merge(psi[!is.na(cat), .(tree, leaf, cvg, variable, cat, prob)], 
+      psi_x_cat <- merge(psi[type == 'cat', .(tree, leaf, cvg, variable, cat, prob)], 
                          preds_x_cat, by = c('tree', 'leaf', 'variable', 'cat'), 
                          allow.cartesian = TRUE)
       psi_x_cat[, lik := prob]
