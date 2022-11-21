@@ -22,13 +22,22 @@ ll_mle <- mvtnorm::dmvnorm(tst, mean = est$mu, sigma = est$sigma, log = TRUE)
 -mean(ll_mle)
 
 # Adversarial RF
-arf <- adversarial_rf(trn, num_trees = 100, mtry = 3)
+arf <- adversarial_rf(trn, num_trees = 200, mtry = 3)
 fd <- forde(arf, x_trn = trn, x_tst = tst)
 ll_arf <- fd$loglik
 -mean(ll_arf)
 
+# Completely randomized trees
+dat <- data.table(trn, y = rbinom(n, size = 1, prob = 0.5))
+rf <- ranger(y ~ ., data = dat, num.trees = 200, mtry = 3,
+             min.node.size = 5, keep.inbag = TRUE, classification = TRUE)
+fd <- forde(rf, x_trn = trn, x_tst = tst)
+ll_arf2 <- fd$loglik
+-mean(ll_arf2)
+
 # Any -Inf values?
 table(is.finite(ll_arf))
+table(is.finite(ll_arf2))
 
 # Plot
 library(ggplot2)
