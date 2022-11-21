@@ -5,10 +5,12 @@ library(data.table)
 library(ranger)
 library(fdm2id)
 library(mlbench)
-library(genrf)
 library(doMC)
 registerDoMC(8)
 set.seed(123)
+
+# Load ARF script
+source('arf.R')
 
 # Simulation function
 sim_fun <- function(b, n, dataset) {
