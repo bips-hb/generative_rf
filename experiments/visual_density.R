@@ -7,7 +7,7 @@ library(fdm2id)
 library(mlbench)
 library(doMC)
 registerDoMC(8)
-set.seed(123)
+set.seed(123, "L'Ecuyer-CMRG")
 
 # Load ARF script
 source('arf.R')
