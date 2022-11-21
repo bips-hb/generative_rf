@@ -230,11 +230,6 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
                  id.vars = c('tree', 'leaf'), value.name = 'max'), 
             by = c('tree', 'leaf', 'variable'))
     }
-    if (isTRUE(parallel)) {
-      bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% bnd_fn(tree)
-    } else {
-      bnds <- foreach(tree = 1:num_trees, .combine = rbind) %do% bnd_fn(tree)
-    }
   } else {
     num_trees <- arf$num.trees
     pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1
@@ -276,11 +271,11 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
                  id.vars = c('tree', 'leaf'), value.name = 'max'), 
             by = c('tree', 'leaf', 'variable'))
     }
-    if (isTRUE(parallel)) {
-      bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% bnd_fn(tree)
-    } else {
-      bnds <- foreach(tree = 1:num_trees, .combine = rbind) %do% bnd_fn(tree)
-    }
+  }
+  if (isTRUE(parallel)) {
+    bnds <- foreach(tree = 1:num_trees, .combine = rbind) %dopar% bnd_fn(tree)
+  } else {
+    bnds <- foreach(tree = 1:num_trees, .combine = rbind) %do% bnd_fn(tree)
   }
   bnds[, cvg := sum(pred[, tree] == leaf) / n, by = .(tree, leaf)]
   if (!isTRUE(prune)) { 
@@ -339,7 +334,7 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
   psi_tmp <- rbind(psi_cnt, psi_cat)
   if (is.null(psi_tmp)) {
     psi <- bnds
-    psi[, mu := NA_real_][, sigma := 0L][, type := 'cnt']
+    psi[, mu := NA_real_][, sigma := NA_real_][, type := 'cnt']
   } else {
     psi <- merge(psi_tmp, bnds, by = c('tree', 'leaf', 'variable'))
   }
