@@ -47,9 +47,8 @@ sim_exp <- function(b, n, d, sparsity) {
 
   # Competition
   trn_dat <- data.table(y = trn_y, trn_x)
-  rf <- ranger(y ~ ., data = trn_dat, num.trees = 100, num.threads = 1,
-               keep.inbag = TRUE, classification = TRUE, 
-               respect.unordered.factors = TRUE)
+  rf <- ranger(y ~ ., data = trn_dat, num.trees = 100, min.node.size = 5,
+               keep.inbag = TRUE, classification = TRUE, num.threads = 1)
   # Correia
   fd_gef <- forde(rf, x_trn = trn_x, x_tst = tst_x, dist = 'norm',
                   prune = FALSE, parallel = FALSE)
