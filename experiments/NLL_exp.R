@@ -107,6 +107,7 @@ p1 <- ggplot(tmp, aes(n, NLL, shape = Method, color = Method, fill = Method,
   geom_path() + 
   geom_ribbon(alpha = 0.1, color = NA) + 
   scale_x_log10() + 
+  scale_y_continuous(breaks = pretty_breaks()) + 
   scale_shape_manual(values = c(16, 3, 17, 15)) + 
   scale_color_nejm() + 
   scale_fill_nejm() + 
@@ -128,6 +129,7 @@ p2 <- ggplot(tmp, aes(sparsity, NLL, shape = Method, color = Method, fill = Meth
   geom_point() +
   geom_path() + 
   geom_ribbon(alpha = 0.1, color = NA) + 
+  scale_y_continuous(breaks = pretty_breaks()) + 
   scale_shape_manual(values = c(16, 3, 17, 15)) + 
   scale_color_nejm() + 
   scale_fill_nejm() + 
