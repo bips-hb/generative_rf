@@ -5,10 +5,12 @@ library(data.table)
 library(ranger)
 library(fdm2id)
 library(mlbench)
-library(genrf)
 library(doMC)
 registerDoMC(8)
 set.seed(123)
+
+# Load ARF
+source('arf.R')
 
 # Simulation function
 sim_fun <- function(n, dataset) {
@@ -28,8 +30,9 @@ sim_fun <- function(n, dataset) {
     colnames(x) <- c('X', 'Y', 'Class')
   }
   # Fit model, generate data
-  mod <- genrf$new(x, num_trees = 10, min_node_size = 5, mtry = 2)
-  synth <- mod$sample(n)
+  arf <- adversarial_rf(x, num_trees = 10, mtry = 2, parallel = FALSE)
+  f <- forde(arf, x, loglik = FALSE, parallel = FALSE)
+  synth <- forge(f$psi, n)
   # Put it all together, export
   df <- rbind(data.frame(Data = "Original", x), 
               data.frame(Data = "Synthetic", synth))
@@ -49,6 +52,3 @@ ggplot(df, aes(x = X, y = Y, color = Class, shape = Class)) +
   #theme(legend.position = 'bottom') +
   scale_color_npg()
 ggsave(paste0("examples", ".pdf"), width = 8, height = 4)
-
-
-
