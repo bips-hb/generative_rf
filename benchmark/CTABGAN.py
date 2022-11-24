@@ -1,3 +1,14 @@
+import os
+print(os.getcwd())
+os.chdir("/home/blesch/generative_RF/CTAB-GAN-Plus")
+print(os.getcwd())
+from model.ctabgan import CTABGAN
+from model.eval.evaluation import get_utility_metrics,stat_sim,privacy_metrics
+import numpy as np
+import pandas as pd
+import glob
+
+os.chdir("../generative_rf/benchmark")
 try:
     exec(open("benchmark_individual.py").read())
 except:
@@ -5,11 +16,7 @@ except:
 
 exec(open("benchmark_individual.py").read())
 
-from model.ctabgan import CTABGAN
-from model.eval.evaluation import get_utility_metrics,stat_sim,privacy_metrics
-import numpy as np
-import pandas as pd
-import glob
+
 
 # TO DO - automize detection of categorical variables and pass list in arguments
 def ctabgan_fun(real_data): 
