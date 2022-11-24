@@ -56,7 +56,7 @@ sim_exp <- function(b, n, d, sparsity) {
   fd_pwc_s <- forde(rf, x_trn = trn_x, x_tst = tst_x, dist = 'unif',
                     prune = FALSE, parallel = FALSE)
   
-  # Results
+  # Export
   out <- data.table(
     'b' = b, 'n' = n, 'd' = d, 'sparsity' = sparsity,
     'ARF' = -mean(fd_tnorm$loglik), 'PWCu' = -mean(fd_pwc_u$loglik),
