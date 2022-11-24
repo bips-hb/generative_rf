@@ -1,9 +1,11 @@
 
 library(data.table)
-library(genrf)
 library(doParallel)
 doParallel::registerDoParallel(20)
-source("myloglik.R")
+library(ranger)
+library(matrixStats)
+library(truncnorm)
+source("../arf.R")
 
 n <- 1000
 p <- 4
@@ -15,13 +17,10 @@ trn <- matrix(Rfast::rmvnorm(n = n, mu = mu, sigma = sigma), ncol = p,
 tst <- matrix(Rfast::rmvnorm(n = n, mu = mu, sigma = sigma), ncol = p,
               dimnames = list(NULL, paste0('x', seq_len(p))))
 
-# FORDE
-mod <- genrf$new(trn, num_trees = 10, min_node_size = 5, oob = FALSE) # max.depth = 1
-ll <- myloglik(mod, tst)
--mean(ll[is.finite(ll)], na.rm = TRUE)
+arf <- adversarial_rf(trn, num_trees = 100, min_node_size = 100, delta = 0, max_iter = 1)
+fd <- forde(arf, x_trn = trn, x_tst = tst)
+-mean(fd$loglik)
 
 # Gaussian
 est <- Rfast::mvnorm.mle(as.matrix(trn))
 -mean(mvtnorm::dmvnorm(tst, mean = est$mu, sigma = est$sigma, log = TRUE))
-
-# We are a little bit worse, as expected

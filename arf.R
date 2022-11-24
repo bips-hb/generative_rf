@@ -158,6 +158,10 @@ adversarial_rf <- function(
 #' @param prune Was pruning applied to the input \code{arf}?
 #' @param loglik Return log-likelihood of training or test data? If \code{FALSE},
 #'   function only returns leaf and distribution parameters \code{psi}. 
+#' @param batch Batch size. The default is to compute parameters for the full 
+#'   dataset in one round, which is always the fastest option if memory allows. 
+#'   However, with large samples and/or many trees, it is more memory efficient 
+#'   to split the data into batches. This has no impact on results.
 #' @param parallel Compute parameters in parallel?
 #'
 #' @import ranger 
@@ -167,7 +171,7 @@ adversarial_rf <- function(
 #' 
 
 forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1, 
-                  prune = TRUE, loglik = TRUE, parallel = TRUE) {
+                  prune = TRUE, loglik = TRUE, batch = NULL, parallel = TRUE) {
   # Prelimz
   x <- as.data.frame(x_trn)
   n <- nrow(x)
@@ -360,64 +364,95 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
       factor_cols <- sapply(x, is.factor)
       pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1
     }
+    
+    # Optional batch index
+    if (!is.null(batch)) {
+      k <- round(n / batch)
+      batch_idx <- suppressWarnings(split(1:n, seq_len(k)))
+    } else {
+      k <- 1L
+      batch_idx <- list(1:n)
+    }
     # Compute per-feature likelihoods
     psi_x_cnt <- psi_x_cat <- NULL
-    preds <- rbindlist(lapply(1:ncol(pred), function(b) {
-      data.table(tree = b, obs = 1:nrow(pred), leaf = pred[, b])
-    }))
-    if (any(!factor_cols)) {
-      x_long_cnt <- melt(data.table(obs = 1:nrow(x), x[, !factor_cols, drop = FALSE]), id.vars = 'obs')
-      preds_x_cnt <- merge(preds, x_long_cnt, by = 'obs', allow.cartesian = TRUE)
-      psi_x_cnt <- merge(psi[type == 'cnt', .(tree, leaf, cvg, variable, min, max, mu, sigma)], 
-                         preds_x_cnt, by = c('tree', 'leaf', 'variable'))
-      if (dist == 'truncnorm') {
-        psi_x_cnt[, lik := dtruncnorm(value, a = min, b = max, mean = mu, sd = sigma)]
-      } else if (dist == 'norm') {
-        psi_x_cnt[, lik := dnorm(value, mean = mu, sd = sigma)]
-      } else if (dist == 'beta') {
-        psi_x_cnt[, lik := dbeta(value, shape1 = alpha, shape2 = beta)]
-      } else if (dist == 'unif') {
-        psi_x_cnt[, lik := dunif(value, min = min, max = max)]
-      } else if (dist == 'exponential') {
-        psi_x_cnt[, lik := dexp(value, rate = rate)]
-      } else if (dist == 'geometric') {
-        psi_x_cnt[, lik := dgeom(value, prob = prob)]
-      } else if (dist %in% c('log-normal', 'lognormal', 'lnorm')) {
-        psi_x_cnt[, lik := dlnorm(value, meanlog = meanlog, sdlog = sdlog)]
-      } else if (dist == 'Poisson') {
-        psi_x_cnt[, lik := dpois(value, lambda = lambda)]
+    
+    ### BATCHING BEGINS HERE AND GOES RIGHT THROUGH TO LOGLIK CALCULATION ###
+    loglik_fn <- function(fold) {
+      # Predictions
+      preds <- rbindlist(lapply(1:ncol(pred), function(b) {
+        data.table(tree = b, leaf = pred[batch_idx[[fold]], b], obs = batch_idx[[fold]])
+      }))
+      # Continuous data
+      if (any(!factor_cols)) {
+        x_long_cnt <- melt(
+          data.table(obs = batch_idx[[fold]], 
+                     x[batch_idx[[fold]], !factor_cols, drop = FALSE]), 
+          id.vars = 'obs'
+        )
+        preds_x_cnt <- merge(preds, x_long_cnt, by = 'obs', allow.cartesian = TRUE)
+        psi_x_cnt <- merge(psi[type == 'cnt', .(tree, leaf, cvg, variable, min, max, mu, sigma)], 
+                           preds_x_cnt, by = c('tree', 'leaf', 'variable'))
+        if (dist == 'truncnorm') {
+          psi_x_cnt[, lik := dtruncnorm(value, a = min, b = max, mean = mu, sd = sigma)]
+        } else if (dist == 'norm') {
+          psi_x_cnt[, lik := dnorm(value, mean = mu, sd = sigma)]
+        } else if (dist == 'beta') {
+          psi_x_cnt[, lik := dbeta(value, shape1 = alpha, shape2 = beta)]
+        } else if (dist == 'unif') {
+          psi_x_cnt[, lik := dunif(value, min = min, max = max)]
+        } else if (dist == 'exponential') {
+          psi_x_cnt[, lik := dexp(value, rate = rate)]
+        } else if (dist == 'geometric') {
+          psi_x_cnt[, lik := dgeom(value, prob = prob)]
+        } else if (dist %in% c('log-normal', 'lognormal', 'lnorm')) {
+          psi_x_cnt[, lik := dlnorm(value, meanlog = meanlog, sdlog = sdlog)]
+        } else if (dist == 'Poisson') {
+          psi_x_cnt[, lik := dpois(value, lambda = lambda)]
+        }
+        psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, lik)]
+        rm(x_long_cnt, preds_x_cnt)
       }
-      psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, lik)]
-      rm(x_long_cnt, preds_x_cnt)
-    } 
-    
-    # ADD NORMALIZATION CONSTANT FOR UNTRUNCATED VARIABLES
-    
-    if (any(factor_cols)) {
-      x_long_cat <- melt(data.table(obs = 1:nrow(x), x[, factor_cols, drop = FALSE]), 
-                         id.vars = 'obs', value.name = 'cat')
-      preds_x_cat <- merge(preds, x_long_cat, by = 'obs', allow.cartesian = TRUE)
-      psi_x_cat <- merge(psi[type == 'cat', .(tree, leaf, cvg, variable, cat, prob)], 
-                         preds_x_cat, by = c('tree', 'leaf', 'variable', 'cat'), 
-                         allow.cartesian = TRUE)
-      psi_x_cat[, lik := prob]
-      psi_x_cat <- psi_x_cat[, .(tree, obs, cvg, lik)]
-      rm(x_long_cat, preds_x_cat)
-    } 
-    rm(preds)
-    
-    psi_x <- rbind(psi_x_cnt, psi_x_cat)
-    rm(psi_x_cnt, psi_x_cat)
-    
-    # Compute per-sample log-likelihoods, export
-    loglik <- unique(psi_x[, prod(lik) * cvg, by = .(obs, tree)])
-    loglik[is.na(V1), V1 := 0]
-    loglik <- loglik[, log(mean(V1)), by = obs]
-    loglik <- loglik[order(obs), V1]
+      # ADD NORMALIZATION CONSTANT FOR UNTRUNCATED VARIABLES
+      
+      # Categorical data
+      if (any(factor_cols)) {
+        x_long_cat <- melt(
+          data.table(obs = batch_idx[[fold]], 
+                     x[batch_idx[[fold]], factor_cols, drop = FALSE]), 
+          id.vars = 'obs', value.name = 'cat'
+        )
+        preds_x_cat <- merge(preds, x_long_cat, by = 'obs', allow.cartesian = TRUE)
+        psi_x_cat <- merge(psi[type == 'cat', .(tree, leaf, cvg, variable, cat, prob)], 
+                           preds_x_cat, by = c('tree', 'leaf', 'variable', 'cat'), 
+                           allow.cartesian = TRUE)
+        psi_x_cat[, lik := prob]
+        psi_x_cat <- psi_x_cat[, .(tree, obs, cvg, lik)]
+        rm(x_long_cat, preds_x_cat)
+      } 
+      rm(preds)
+      # Put it together
+      psi_x <- rbind(psi_x_cnt, psi_x_cat)
+      rm(psi_x_cnt, psi_x_cat)
+      # Compute per-sample log-likelihoods
+      loglik <- unique(psi_x[, prod(lik) * cvg, by = .(obs, tree)])
+      loglik[is.na(V1), V1 := 0]
+      loglik <- loglik[, log(mean(V1)), by = obs]
+      return(loglik)
+    }
+    if (k == 1L) {
+      ll <- loglik_fn(1)
+    } else {
+      if (isTRUE(parallel)) {
+        ll <- foreach(fold = 1:k, .combine = rbind) %dopar% loglik_fn(fold)
+      } else {
+        ll <- foreach(fold = 1:k, .combine = rbind) %do% loglik_fn(fold)
+      }
+    }
+    loglik <- ll[order(obs), V1]
   } else {
     loglik <- NULL
   }
-  
+  # Export
   out <- list('psi' = psi, 'loglik' = loglik)
   return(out)
 }
@@ -476,6 +511,7 @@ forge <- function(psi, m, dist = 'truncnorm') {
 # Other exponential family options, with normalization constant
 # psi could be a list with d elements, one for each feature
 # Idea: let each tree have its own synthetic dataset
+# Add KDE option?
 
 
 
