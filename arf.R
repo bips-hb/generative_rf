@@ -1,22 +1,18 @@
-library(data.table)
-library(ranger)
-library(truncnorm)
-library(MASS)
-library(doMC)
-registerDoMC(8)
-
 #' Adversarial random forest
 #' 
 #' Implements an adversarial RF to learn independence-inducing splits.
 #' 
-#' @param x Input data. 
+#' @param x Input data.
 #' @param delta Tolerance parameter. Algorithm converges when OOB accuracy is
-#'   < 0.5 plus \code{delta}.
+#'   < 0.5 + \code{delta}.
 #' @param num_trees Number of trees to grow. 
 #' @param min_node_size Minimum size for terminal nodes.
-#' @param prune Prune leaves with insufficient real data? 
+#' @param prune Prune leaves with insufficient real data? Strongly advised when
+#'   continuous features are present, otherwise higher moments are impossible
+#'   to estimate. When this occurs, leaves are artificially assigned zero 
+#'   coverage, which can hurt performance.
 #' @param max_iters Maximum iterations.
-#' @param parallel Fit forest in parallel?
+#' @param parallel Train in parallel?
 #' @param ... Extra parameters to be passed to \code{ranger}.
 #'
 #' 
@@ -77,12 +73,14 @@ adversarial_rf <- function(
       # Create synthetic data
       trees <- sample(1:num_trees, n, replace = TRUE)
       leaves <- sapply(1:n, function(i) sample(nodeIDs[, trees[i]], 1))
-      
-      x_synth <- foreach(i = 1:n, .combine = rbind) %do% {
-        tree <- sample(1:num_trees, 1)
-        leaf <- sample(nodeIDs[, tree], 1)
-        leaf_idx <- nodeIDs[, tree] == leaf
+      synth <- function(i) {
+        leaf_idx <- nodeIDs[, trees[i]] == leaves[i]
         as.data.frame(lapply(x_real[leaf_idx, ], function(x) sample(x, 1)))
+      }
+      if (isTRUE(parallel)) {
+        x_synth <- foreach(i = 1:n, .combine = rbind) %dopar% synth(i)
+      } else {
+        x_synth <- foreach(i = 1:n, .combine = rbind) %do% synth(i)
       }
       # Merge real and synthetic data
       dat <- rbind(data.frame(y = 1L, x_real),
@@ -97,7 +95,6 @@ adversarial_rf <- function(
                       num.trees = num_trees, min.node.size = min_node_size, 
                       respect.unordered.factors = TRUE, num.threads = 1, ...)
       }
-      
       # Evaluate
       acc <- 1 - rf1$prediction.error
       if (acc <= 0.5 + delta | iters >= max_iters) {
@@ -108,16 +105,13 @@ adversarial_rf <- function(
       }
     }
   }
-  
-  if (isTRUE(prune)) {
+  if (isTRUE(prune) & any(!factor_cols)) {
     # Get terminal nodes for all observations
     pred <- predict(rf0, x, type = 'terminalNodes')$predictions + 1
-    
     # Prune leaves without real data, i.e. zero coverage, or with only one obs. (cannot estimate sd)
     for (tree in 1:num_trees) {
       leaves <- which(rf0$forest$child.nodeIDs[[tree]][[1]] == 0)
       to_prune <- leaves[!(leaves %in% which(tabulate(pred[, tree]) > 1))]
-      
       while(length(to_prune) > 0) {
         for (tp in to_prune) {
           # Find parents
@@ -133,7 +127,6 @@ adversarial_rf <- function(
         }
         to_prune <- which((rf0$forest$child.nodeIDs[[tree]][[1]] + 1) %in% to_prune)
       }
-      
     }
   }
   return(rf0)
@@ -144,18 +137,21 @@ adversarial_rf <- function(
 #' 
 #' Uses a pre-trained ARF model to estimate leaf and distribution parameters.
 #' 
-#' @param arf Pre-trained adversarial random forest.
+#' @param rf Pre-trained adversarial random forest. Alternatively, any object
+#'   of class \code{ranger}.
 #' @param x_trn Training data for estimating parameters.
 #' @param x_tst Optional test data. If supplied, the function computes 
 #'   log-likelihoods on test data (measured in nats).
-#' @param dist Distribution to use for density estimation of continuous features.. 
-#'   Default is truncated normal. 
-#' @param epsilon Slack parameter on empirical bounds when \code{dist = "unif"}.
-#'   This avoids zero-density points when test data falls outside the support
+#' @param family Distribution to use for density estimation of continuous 
+#'   features. Current options include truncated normal (the default) and 
+#'   uniform (\code{family = "unif"}). See Details.
+#' @param epsilon Slack parameter on empirical bounds when \code{family = "unif"}.
+#'   This avoids zero-density points when test data fall outside the support
 #'   of training data. The gap between lower and upper bounds is expanded by 
-#'   a factor of \code{epsilon}. Only matters when a variable is never used for
-#'   splits.
-#' @param prune Was pruning applied to the input \code{arf}?
+#'   a factor of \code{epsilon}. Only used when a variable is never selected for
+#'   splitting.
+#' @param prune Was pruning applied to the input \code{rf}? If \code{FALSE},
+#'   leaves with coverage 1/n are set to coverage 0.
 #' @param loglik Return log-likelihood of training or test data? If \code{FALSE},
 #'   function only returns leaf and distribution parameters \code{psi}. 
 #' @param batch Batch size. The default is to compute parameters for the full 
@@ -170,7 +166,7 @@ adversarial_rf <- function(
 #' @importFrom truncnorm dtruncnorm 
 #' 
 
-forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1, 
+forde <- function(rf, x_trn, x_tst = NULL, family = 'truncnorm', epsilon = 0.1, 
                   prune = TRUE, loglik = TRUE, batch = NULL, parallel = TRUE) {
   # Prelimz
   x <- as.data.frame(x_trn)
@@ -191,16 +187,16 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
   factor_cols <- sapply(x, is.factor)
   
   # Compute leaf bounds and coverage
-  if (class(arf) == 'list') {
-    num_trees <- length(arf)
-    pred <- do.call('cbind', lapply(arf, function(f) {
+  if (class(rf) == 'list') {
+    num_trees <- length(rf)
+    pred <- do.call('cbind', lapply(rf, function(f) {
       predict(f, x, type = 'terminalNodes')$predictions + 1
     }))
     bnd_fn <- function(tree) {
-      num_nodes <- length(arf[[tree]]$forest$split.varIDs[[1]])
+      num_nodes <- length(rf[[tree]]$forest$split.varIDs[[1]])
       lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
       ub <- matrix(Inf, nrow = num_nodes, ncol = d)
-      if (dist == 'unif') {
+      if (family == 'unif') {
         if (!is.null(x_tst)) {
           x_tst <- as.data.frame(x_tst)
         }
@@ -215,19 +211,19 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
         }
       }
       for (i in 1:num_nodes) {
-        left_child <- arf[[tree]]$forest$child.nodeIDs[[1]][[1]][i] + 1
-        right_child <- arf[[tree]]$forest$child.nodeIDs[[1]][[2]][i] + 1
-        splitvarID <- arf[[tree]]$forest$split.varIDs[[1]][i] + 1
-        splitval <- arf[[tree]]$forest$split.value[[1]][i]
+        left_child <- rf[[tree]]$forest$child.nodeIDs[[1]][[1]][i] + 1
+        right_child <- rf[[tree]]$forest$child.nodeIDs[[1]][[2]][i] + 1
+        splitvarID <- rf[[tree]]$forest$split.varIDs[[1]][i] + 1
+        splitval <- rf[[tree]]$forest$split.value[[1]][i]
         if (left_child > 1 & left_child != right_child) {
           ub[left_child, ] <- ub[right_child, ] <- ub[i, ]
           lb[left_child, ] <- lb[right_child, ] <- lb[i, ]
           ub[left_child, splitvarID] <- lb[right_child, splitvarID] <- splitval
         }
       }
-      leaves <- which(arf[[tree]]$forest$child.nodeIDs[[1]][[1]] == 0) 
-      colnames(lb) <- arf[[tree]]$forest$independent.variable.names
-      colnames(ub) <- arf[[tree]]$forest$independent.variable.names
+      leaves <- which(rf[[tree]]$forest$child.nodeIDs[[1]][[1]] == 0) 
+      colnames(lb) <- rf[[tree]]$forest$independent.variable.names
+      colnames(ub) <- rf[[tree]]$forest$independent.variable.names
       merge(melt(data.table(tree = tree, leaf = leaves, lb[leaves, ]), 
                  id.vars = c('tree', 'leaf'), value.name = 'min'), 
             melt(data.table(tree = tree, leaf = leaves, ub[leaves, ]), 
@@ -235,13 +231,13 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
             by = c('tree', 'leaf', 'variable'))
     }
   } else {
-    num_trees <- arf$num.trees
-    pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1
+    num_trees <- rf$num.trees
+    pred <- predict(rf, x, type = 'terminalNodes')$predictions + 1
     bnd_fn <- function(tree) {
-      num_nodes <- length(arf$forest$split.varIDs[[tree]])
+      num_nodes <- length(rf$forest$split.varIDs[[tree]])
       lb <- matrix(-Inf, nrow = num_nodes, ncol = d)
       ub <- matrix(Inf, nrow = num_nodes, ncol = d)
-      if (dist == 'unif') {
+      if (family == 'unif') {
         if (!is.null(x_tst)) {
           x_tst <- as.data.frame(x_tst)
         }
@@ -256,19 +252,19 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
         }
       }
       for (i in 1:num_nodes) {
-        left_child <- arf$forest$child.nodeIDs[[tree]][[1]][i] + 1
-        right_child <- arf$forest$child.nodeIDs[[tree]][[2]][i] + 1
-        splitvarID <- arf$forest$split.varIDs[[tree]][i] + 1
-        splitval <- arf$forest$split.value[[tree]][i]
+        left_child <- rf$forest$child.nodeIDs[[tree]][[1]][i] + 1
+        right_child <- rf$forest$child.nodeIDs[[tree]][[2]][i] + 1
+        splitvarID <- rf$forest$split.varIDs[[tree]][i] + 1
+        splitval <- rf$forest$split.value[[tree]][i]
         if (left_child > 1 & left_child != right_child) {
           ub[left_child, ] <- ub[right_child, ] <- ub[i, ]
           lb[left_child, ] <- lb[right_child, ] <- lb[i, ]
           ub[left_child, splitvarID] <- lb[right_child, splitvarID] <- splitval
         }
       }
-      leaves <- which(arf$forest$child.nodeIDs[[tree]][[1]] == 0) 
-      colnames(lb) <- arf$forest$independent.variable.names
-      colnames(ub) <- arf$forest$independent.variable.names
+      leaves <- which(rf$forest$child.nodeIDs[[tree]][[1]] == 0) 
+      colnames(lb) <- rf$forest$independent.variable.names
+      colnames(ub) <- rf$forest$independent.variable.names
       merge(melt(data.table(tree = tree, leaf = leaves, lb[leaves, ]), 
                  id.vars = c('tree', 'leaf'), value.name = 'min'), 
             melt(data.table(tree = tree, leaf = leaves, ub[leaves, ]), 
@@ -292,20 +288,10 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
     psi_cnt_fn <- function(tree) {
       dt <- data.table(tree = tree, x[, !factor_cols, drop = FALSE], leaf = pred[, tree])
       long <- melt(dt, id.vars = c('tree', 'leaf'))
-      if (dist %in% c('norm', 'truncnorm')) {
-        long[, list(cat = NA_character_, prob = NA_real_, mu = mean(value), sigma = sd(value),
-                    type = 'cnt'), 
+      if (grepl('norm', family)) {
+        long[, list(cat = NA_character_, prob = NA_real_, 
+                    mu = mean(value), sigma = sd(value), type = 'cnt'), 
              by = .(tree, leaf, variable)]
-      } else if (dist == 'beta') {
-        long[, list(cat = NA_character_, prob = NA_real_, mu = mean(value), s2 = var(value),
-                    type = 'cnt'), 
-             by = .(tree, leaf, variable)]
-        long[, alpha := ((1 - mu) / s2 - 1 / mu) * mu^2]
-        long[, beta := alpha * (1 / mu - 1)]
-        long[, c('mu', 's2') := NULL]
-      } else if (dist != 'unif') {
-        long[, as.list(MASS::fitdistr(value, dist)$estimate), by = .(tree, leaf, variable)]
-        long[, type := 'cnt']
       }
     }
     if (isTRUE(parallel)) {
@@ -329,12 +315,6 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
       psi_cat <- foreach(tree = 1:num_trees, .combine = rbind) %do% psi_cat_fn(tree)
     }
   } 
-  
-  # NEED: EITHER KEEP CONTINUOUS/CATEGORICAL PSI SEPARATE OR CREATE SOME SMARTER
-  # RBIND WHERE RELEVANT FEATURES ARE ADDED AND KEPT NA. ON A RELATED TOPIC, 
-  # SHOULD WE ALLOW DIFFERENT DISTRIBUTIONS PER FEATURE? MAKES LIFE A LITTLE
-  # COMPLICATED BUT ARGUABLY MAKES SENSE.
-  
   psi_tmp <- rbind(psi_cnt, psi_cat)
   if (is.null(psi_tmp)) {
     psi <- bnds
@@ -362,7 +342,7 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
         )
       }
       factor_cols <- sapply(x, is.factor)
-      pred <- predict(arf, x, type = 'terminalNodes')$predictions + 1
+      pred <- predict(rf, x, type = 'terminalNodes')$predictions + 1
     }
     
     # Optional batch index
@@ -392,21 +372,21 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
         preds_x_cnt <- merge(preds, x_long_cnt, by = 'obs', allow.cartesian = TRUE)
         psi_x_cnt <- merge(psi[type == 'cnt', .(tree, leaf, cvg, variable, min, max, mu, sigma)], 
                            preds_x_cnt, by = c('tree', 'leaf', 'variable'))
-        if (dist == 'truncnorm') {
+        if (family == 'truncnorm') {
           psi_x_cnt[, lik := dtruncnorm(value, a = min, b = max, mean = mu, sd = sigma)]
-        } else if (dist == 'norm') {
+        } else if (family == 'norm') {
           psi_x_cnt[, lik := dnorm(value, mean = mu, sd = sigma)]
-        } else if (dist == 'beta') {
+        } else if (family == 'beta') {
           psi_x_cnt[, lik := dbeta(value, shape1 = alpha, shape2 = beta)]
-        } else if (dist == 'unif') {
+        } else if (family == 'unif') {
           psi_x_cnt[, lik := dunif(value, min = min, max = max)]
-        } else if (dist == 'exponential') {
+        } else if (family == 'exponential') {
           psi_x_cnt[, lik := dexp(value, rate = rate)]
-        } else if (dist == 'geometric') {
+        } else if (family == 'geometric') {
           psi_x_cnt[, lik := dgeom(value, prob = prob)]
-        } else if (dist %in% c('log-normal', 'lognormal', 'lnorm')) {
+        } else if (family %in% c('log-normal', 'lognormal', 'lnorm')) {
           psi_x_cnt[, lik := dlnorm(value, meanlog = meanlog, sdlog = sdlog)]
-        } else if (dist == 'Poisson') {
+        } else if (family == 'Poisson') {
           psi_x_cnt[, lik := dpois(value, lambda = lambda)]
         }
         psi_x_cnt <- psi_x_cnt[, .(tree, obs, cvg, lik)]
@@ -463,8 +443,8 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
 #' Uses pre-trained FORDE model to simulate synthetic data.
 #' 
 #' @param psi Parameters learned via FORDE. 
-#' @param m Number of synthetic samples to generate
-#' @param dist Distribution to use for random sampling. Default is truncated
+#' @param n_synth Number of synthetic samples to generate
+#' @param family Distribution to use for random sampling. Default is truncated
 #'   normal. 
 #'
 #' @import data.table
@@ -472,12 +452,12 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
 #' @importFrom truncnorm rtruncnorm 
 #' 
 
-forge <- function(psi, m, dist = 'truncnorm') {
+forge <- function(psi, n_synth, family = 'truncnorm') {
   # Draw random leaves with probability proportional to coverage
   omega <- unique(psi[, .(tree, leaf, cvg)])
   omega[, pr := cvg / max(tree)][, idx := .I]
-  draws <- sample(omega$idx, size = m, replace = TRUE, prob = omega$pr)
-  psi_idx <- foreach(i = 1:m, .combine = rbind) %do% {
+  draws <- sample(omega$idx, size = n_synth, replace = TRUE, prob = omega$pr)
+  psi_idx <- foreach(i = 1:n_synth, .combine = rbind) %do% {
     id <- draws[i]
     out <- psi[tree == omega[idx == id, tree] & leaf == omega[idx == id, leaf]]
     out[, idx := i]
@@ -486,10 +466,10 @@ forge <- function(psi, m, dist = 'truncnorm') {
   synth_cnt <- synth_cat <- NULL
   if (any(is.na(psi$prob))) {  # Continuous
     psi_cnt <- psi_idx[is.na(prob)]
-    if (dist == 'truncnorm') {
+    if (family == 'truncnorm') {
       psi_cnt[, dat := rtruncnorm(nrow(psi_cnt), a = min, b = max,
                                   mean = mu, sd = sigma)]
-    } else if (dist == 'norm') {
+    } else if (family == 'norm') {
       psi_cnt[, dat := rnorm(nrow(psi_cnt), mean = mu, sd = sigma)]
     }
     synth_cnt <- dcast(psi_cnt, idx ~ variable, value.var = 'dat')
@@ -507,12 +487,13 @@ forge <- function(psi, m, dist = 'truncnorm') {
   return(x_synth)
 }
 
-# Batch option for FORDE?
-# Other exponential family options, with normalization constant
-# psi could be a list with d elements, one for each feature
-# Idea: let each tree have its own synthetic dataset
+
+# Other exponential family options, with normalization constant?
+# Either keep continuous/categorical psi separate or maybe allow different
+# distributions for each feature? Then psi would be a list with d elements.
 # Add KDE option?
 
+# Idea: let each tree have its own synthetic dataset?
 
 
 
