@@ -1,7 +1,13 @@
+
 import os
 print(os.getcwd())
 os.chdir("/home/blesch/generative_RF/CTAB-GAN-Plus")
 print(os.getcwd())
+print(os.listdir())
+import sys
+print(sys.path)
+sys.path.append("")
+print(sys.path)
 from model.ctabgan import CTABGAN
 from model.eval.evaluation import get_utility_metrics,stat_sim,privacy_metrics
 import numpy as np
@@ -55,15 +61,17 @@ census_res = run_benchmark(training_data = census_train, test_data = census_test
 metrics = census_metrics, data_synthesizer = {"CTABGAN+": ctabgan_fun})
 pd.concat(census_res).to_csv("CTABGAN_census.csv")
 
+# credit
+credit_res = run_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
+metrics= credit_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
+pd.concat(credit_res).to_csv("CTABGAN_credit.csv")
+
+
 # covtype
 covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
 metrics= covtype_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
 pd.concat(covtype_res).to_csv("CTABGAN_covtype.csv")
 
-# credit
-credit_res = run_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
-metrics= credit_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
-pd.concat(credit_res).to_csv("CTABGAN_credit.csv")
 
 # intrusion
 #intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
