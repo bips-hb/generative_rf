@@ -374,10 +374,9 @@ forde <- function(arf, x_trn, x_tst = NULL, dist = 'truncnorm', epsilon = 0.1,
       batch_idx <- list(1:n)
     }
     # Compute per-feature likelihoods
-    psi_x_cnt <- psi_x_cat <- NULL
-    
     ### BATCHING BEGINS HERE AND GOES RIGHT THROUGH TO LOGLIK CALCULATION ###
     loglik_fn <- function(fold) {
+      psi_x_cnt <- psi_x_cat <- NULL
       # Predictions
       preds <- rbindlist(lapply(1:ncol(pred), function(b) {
         data.table(tree = b, leaf = pred[batch_idx[[fold]], b], obs = batch_idx[[fold]])
