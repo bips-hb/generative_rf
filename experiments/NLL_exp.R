@@ -48,10 +48,10 @@ sim_exp <- function(b, n, d, sparsity) {
   # Adversarial RF
   arf <- adversarial_rf(trn_x, num_trees = 100, max_iters = 1, parallel = FALSE)
   # Truncated normal density
-  fd_tnorm <- forde(arf, x_trn = trn_x, x_tst = tst_x, dist = 'truncnorm',
+  fd_tnorm <- forde(arf, x_trn = trn_x, x_tst = tst_x, family = 'truncnorm',
                     parallel = FALSE)
   # PWC unsupervised
-  fd_pwc_u <- forde(arf, x_trn = trn_x, x_tst = tst_x, dist = 'unif',
+  fd_pwc_u <- forde(arf, x_trn = trn_x, x_tst = tst_x, family = 'unif',
                     parallel = FALSE)
 
   # Competition
@@ -59,7 +59,7 @@ sim_exp <- function(b, n, d, sparsity) {
   rf <- ranger(y ~ ., data = trn_dat, num.trees = 100, min.node.size = 5,
                keep.inbag = TRUE, classification = TRUE, num.threads = 1)
   # PWC supervised
-  fd_pwc_s <- forde(rf, x_trn = trn_x, x_tst = tst_x, dist = 'unif',
+  fd_pwc_s <- forde(rf, x_trn = trn_x, x_tst = tst_x, family = 'unif',
                     prune = FALSE, parallel = FALSE)
   
   # Correia
