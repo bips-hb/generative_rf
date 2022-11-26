@@ -5,7 +5,8 @@ print(os.getcwd())
 print(os.listdir())
 import sys
 print(sys.path)
-
+sys.path.append("")
+print(sys.path)
 
 os.chdir("../../../../generative_rf/benchmark")
 try:
@@ -22,25 +23,25 @@ from ctgan import CTGANSynthesizer
 from data import read_csv
 
 
-exa = adult_train[1].iloc[1:1000,]
-data, discrete_columns =read_csv(data_frame=exa, 
-list_of_all_variables = exa.columns.tolist(),
-discrete= "workclass,education,marital-status,occupation,relationship,race,sex,native-country,label")
-generator_dim = [int(x) for x in '256,256'.split(',')]
+#exa = adult_train[1].iloc[1:1000,]
+#data, discrete_columns =read_csv(data_frame=exa, 
+#list_of_all_variables = exa.columns.tolist(),
+#discrete= "workclass,education,marital-status,occupation,relationship,race,sex,native-country,label")
+#generator_dim = [int(x) for x in '256,256'.split(',')]
   #  print(discrete_columns)
-discriminator_dim = [int(x) for x in '256,256'.split(',')]
-model = CTGANSynthesizer(
-        embedding_dim=128, generator_dim=generator_dim,
-        discriminator_dim=discriminator_dim, generator_lr=2e-4,
-        generator_decay=1e-6, discriminator_lr=2e-4,
-        discriminator_decay=0, batch_size=500,
-        epochs=300)
-model.fit(data,discrete_columns= discrete_columns)
+#discriminator_dim = [int(x) for x in '256,256'.split(',')]
+#model = CTGANSynthesizer(
+#        embedding_dim=128, generator_dim=generator_dim,
+#        discriminator_dim=discriminator_dim, generator_lr=2e-4,
+#        generator_decay=1e-6, discriminator_lr=2e-4,
+#        discriminator_decay=0, batch_size=500,
+#        epochs=300)
+#model.fit(data,discrete_columns= discrete_columns)
 
 
-num_samples = len(data)
+#num_samples = len(data)
 
-sampled = model.sample(num_samples,None,None)
+#sampled = model.sample(num_samples,None,None)
 
 # define synthetic data generation
 def synth_data(data_train, synthesizer= {'RCCGAN': 'RCCGAN'}):
@@ -71,9 +72,14 @@ def synth_data(data_train, synthesizer= {'RCCGAN': 'RCCGAN'}):
 
 
 # adult
-adult_res = run_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
-metrics= adult_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
-pd.concat(adult_res).to_csv("RCCGAN_adult.csv")
+#adult_res = run_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
+#metrics= adult_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
+#pd.concat(adult_res).to_csv("RCCGAN_adult.csv")
+
+#####################
+# !!!! only one rep, choose first data instance of adult, census, etc.
+
+rep = range(1)
 
 
 # census
@@ -97,6 +103,6 @@ intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusi
 metrics= intrusion_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
 pd.concat(intrusion_res).to_csv("RCCGAN_intrusion.csv")
 
-exa = covtype_train[1].iloc[1:1000,]
-synth_data(data_train=exa)
+#exa = covtype_train[1].iloc[1:1000,]
+#synth_data(data_train=exa)
 
