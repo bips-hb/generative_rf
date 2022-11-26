@@ -1,7 +1,7 @@
 # Load libraries, register cores
 library(data.table)
 library(ranger)
-library(truncnorm)
+library(arf)
 library(Rfast)
 library(ggplot2)
 library(ggsci)
@@ -9,9 +9,6 @@ library(cowplot)
 library(reticulate)
 library(doMC)
 registerDoMC(20)
-
-# Load ARF
-source('arf.R')
 
 # Load GeFs
 np <- reticulate::import("numpy")
