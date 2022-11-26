@@ -108,7 +108,7 @@ credit_metrics = [f1_none, accuracy_score]
 
 # intrusion
 intrusion = load_tables(load_dataset('intrusion'))['intrusion']
-#intrusion.drop('is_host_login', axis = 1)
+intrusion.drop('is_host_login', axis = 1)
 intrusion_train, intrusion_test = zip(*[train_test_split(intrusion, test_size=100/(394+100), stratify=intrusion['label'])for i in rep])
 for i in rep:
   intrusion_train[i].name = 'intrusion'

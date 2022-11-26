@@ -83,14 +83,14 @@ rep = range(1)
 
 
 # census
-census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
-metrics = census_metrics, data_synthesizer =  {"RCCGAN": 'RCCGAN'})
-pd.concat(census_res).to_csv("RCCGAN_census.csv")
+#census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
+#metrics = census_metrics, data_synthesizer =  {"RCCGAN": 'RCCGAN'})
+#pd.concat(census_res).to_csv("RCCGAN_census.csv")
 
 # credit
-credit_res = run_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
-metrics= credit_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
-pd.concat(credit_res).to_csv("RCCGAN_credit.csv")
+#credit_res = run_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
+#metrics= credit_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
+#pd.concat(credit_res).to_csv("RCCGAN_credit.csv")
 
 
 # covtype
