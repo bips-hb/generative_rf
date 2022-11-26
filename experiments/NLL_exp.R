@@ -43,7 +43,8 @@ sim_exp <- function(b, n, d, sparsity) {
   tst_y <- y[(n+1):(n + 1000)]
   
   # Adversarial RF
-  arf <- adversarial_rf(trn_x, num_trees = 100, max_iters = 1, parallel = FALSE)
+  arf <- adversarial_rf(trn_x, num_trees = 100, max_iters = 1, 
+                        verbose = FALSE, parallel = FALSE)
   # Truncated normal density
   fd_tnorm <- forde(arf, x_trn = trn_x, x_tst = tst_x, family = 'truncnorm',
                     parallel = FALSE)
