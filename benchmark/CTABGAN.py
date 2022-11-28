@@ -56,6 +56,11 @@ def synth_data(data_train, synthesizer):
 #metrics= adult_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
 #pd.concat(adult_res).to_csv("CTABGAN_adult.csv")
 
+#####################
+# !!!! only one rep, choose first data instance of adult, census, etc.
+
+rep = range(1)
+
 # census
 census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
 metrics = census_metrics, data_synthesizer = {"CTABGAN+": ctabgan_fun})
@@ -68,9 +73,9 @@ pd.concat(credit_res).to_csv("CTABGAN_credit.csv")
 
 
 # covtype
-covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
-metrics= covtype_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
-pd.concat(covtype_res).to_csv("CTABGAN_covtype.csv")
+#covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
+#metrics= covtype_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
+#pd.concat(covtype_res).to_csv("CTABGAN_covtype.csv")
 
 
 # intrusion
