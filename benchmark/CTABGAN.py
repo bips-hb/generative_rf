@@ -1,7 +1,7 @@
 
 import os
 print(os.getcwd())
-os.chdir("/home/blesch/generative_RF/CTAB-GAN-Plus")
+os.chdir("./CTABGAN")
 print(os.getcwd())
 print(os.listdir())
 import sys
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import glob
 
-os.chdir("../generative_rf/benchmark")
+os.chdir("..")
 try:
     exec(open("benchmark_individual.py").read())
 except:
@@ -51,15 +51,20 @@ def synth_data(data_train, synthesizer):
     else: 
         print("please use CTABGAN synthesizer")
 
-# adult
-#adult_res = run_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
-#metrics= adult_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
-#pd.concat(adult_res).to_csv("CTABGAN_adult.csv")
+
 
 #####################
 # !!!! only one rep, choose first data instance of adult, census, etc.
 
 rep = range(1)
+
+print(f"CTABGAN+ sucessfully initialized, number of reps is {rep}")
+
+
+# adult
+adult_res = run_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
+metrics= adult_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
+pd.concat(adult_res).to_csv("CTABGAN_adult.csv")
 
 # census
 census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
@@ -86,7 +91,7 @@ pd.concat(credit_res).to_csv("CTABGAN_credit.csv")
 #-----------------
 ## some notes
 # --------------
-# important note: to sample data points, CTABGAN needs at least 2 different levels, 
+# IMPORTANT note: to sample data points, CTABGAN needs at least 2 different levels, 
 # otherwise sampling never finishes -- take this into account when subsampling!
 #syn = ctabgan_fun(real_data=dd)
 #syn.fit()
@@ -96,6 +101,6 @@ pd.concat(credit_res).to_csv("CTABGAN_credit.csv")
 #dd.select_dtypes('object').columns.to_list()
 #dd.select_dtypes('int').columns.to_list()
 
-#ll =[]
-#for i in rep: ll.append(mnist12_test[i].describe()) 
-#ll = pd.concat(ll)
+# another IMPORTANT note 
+# CTABGAN leaves dead processes lying around 
+# one needs to clean them afterwards!

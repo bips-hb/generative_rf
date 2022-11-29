@@ -38,6 +38,7 @@ def synth_data(data_train, synthesizer):
     if synthesizer == itgan_fun:
         syn = itgan_fun(real_data = data_train)
         syn.fit()
+        print("ITGAN has synthesized")
         return syn.sample(data_train.shape[0])
     else: 
         print("please use ITGAN synthesizer")
@@ -78,9 +79,9 @@ print(f"ITGAN sucessfully initialized, number of reps is {rep}")
 #pd.concat(adult_res).to_csv("ITGAN_adult.csv")
 
 # census
-#census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
-#metrics = census_metrics, data_synthesizer = {"ITGAN": itgan_fun})
-#pd.concat(census_res).to_csv("ITGAN_census.csv")
+census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
+metrics = census_metrics, data_synthesizer = {"ITGAN": itgan_fun})
+pd.concat(census_res).to_csv("ITGAN_census.csv")
 
 # credit
 #credit_res = run_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
