@@ -23,7 +23,7 @@ def itgan_fun(real_data):
     # find categorical columns
     cat_cols = real_data.select_dtypes('object').columns.to_list()
     ord_cols = []
-    arg = ITGAN.getArgs(data = real_data, cat_col = cat_cols, ord_col = ord_cols, GPU_NUM=0, epochs = 3)
+    arg = ITGAN.getArgs(data = real_data, cat_col = cat_cols, ord_col = ord_cols, GPU_NUM=0)
     return ITGAN.AEGANSynthesizer(**arg)
 
 
