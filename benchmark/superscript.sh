@@ -4,15 +4,15 @@
 #python CTGAN_gpu.py
 #python CTGAN_cpu.py
 source /home/blesch/miniconda3/etc/profile.d/conda.sh
-conda info
+conda info --env
 #conda activate ctabgan
-#conda info
+#conda info --env
 #python CTABGAN.py 
 #conda activate gan
-#conda info
+#conda info --env
 #python RCCGAN.py
 conda activate itgan
-conda info
+conda info --env
 python ITGAN_adult.py
 timeout 24h python ITGAN_census.py
 timeout 24h python ITGAN_credit.py
