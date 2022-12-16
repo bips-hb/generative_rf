@@ -81,30 +81,30 @@ rep = range(1)
 print(f"RCCGAN sucessfully initialized, number of reps is {rep}")
 
 # adult
-adult_res = run_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
-metrics= adult_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
-pd.concat(adult_res).to_csv("RCCGAN_adult.csv")
+#adult_res = run_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
+#metrics= adult_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
+#pd.concat(adult_res).to_csv("RCCGAN_adult.csv")
 
 # census
-census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
-metrics = census_metrics, data_synthesizer =  {"RCCGAN": 'RCCGAN'})
-pd.concat(census_res).to_csv("RCCGAN_census.csv")
+#census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
+#metrics = census_metrics, data_synthesizer =  {"RCCGAN": 'RCCGAN'})
+#pd.concat(census_res).to_csv("RCCGAN_census.csv")
 
 # credit
-credit_res = run_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
-metrics= credit_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
-pd.concat(credit_res).to_csv("RCCGAN_credit.csv")
+#credit_res = run_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
+#metrics= credit_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
+#pd.concat(credit_res).to_csv("RCCGAN_credit.csv")
 
 
 # covtype
-#covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
-#metrics= covtype_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
-#pd.concat(covtype_res).to_csv("RCCGAN_covtype.csv")
+covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
+metrics= covtype_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
+pd.concat(covtype_res).to_csv("RCCGAN_covtype.csv")
 
 # intrusion
-#intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
-#metrics= intrusion_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
-#pd.concat(intrusion_res).to_csv("RCCGAN_intrusion.csv")
+intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
+metrics= intrusion_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
+pd.concat(intrusion_res).to_csv("RCCGAN_intrusion.csv")
 
 #exa = covtype_train[1].iloc[1:1000,]
 #synth_data(data_train=exa)
