@@ -53,12 +53,12 @@ def visualize(X, svName=None):
     plt.close()
 
 
-renewSeed(2022)
+renewSeed(2023)
 X = pd.read_csv('mnist28.csv')
 visualize(X, svName="mnist28")
 
-# ARF
-renewSeed(2022)
+# ARF - original version (not used for result)
+renewSeed(2023)
 X_ARF = X.copy()
 X_ARF.iloc[:,:] = X_ARF.iloc[:,:].astype('str')
 arf_rf = arf.adversarial_rf(X_ARF)
@@ -68,8 +68,14 @@ Xfake_ARF = (pandas2ri.PandasDataFrame(Xfake_ARF,index=Xfake_ARF.colnames).trans
 Xfake_ARF.to_csv('results/mnist28_ARF.csv', index=False)
 visualize(Xfake_ARF, svName="mnist28_ARF")
 
+# import CSV for modified ARF data (run in R previously)
+renewSeed(2023)
+X_fake_ARF = pd.read_csv('results/mnist28_ARF.csv')
+X_fake_ARF = X_fake_ARF.iloc[:,1:]
+visualize(X_fake_ARF, svName="mnist28_ARF")
+
 # TVAE
-renewSeed(2022)
+renewSeed(2023)
 model_TVAE = TVAE()
 model_TVAE.fit(X)
 Xfake_TVAE = model_TVAE.sample(10000)
@@ -77,7 +83,7 @@ Xfake_TVAE.to_csv('results/mnist28_TVAE.csv', index=False)
 visualize(Xfake_TVAE, svName="mnist28_TVAE")
 
 # CTGAN
-renewSeed(2022)
+renewSeed(2023)
 model_CTGAN = CTGAN()
 model_CTGAN.fit(X)
 Xfake_CTGAN = model_CTGAN.sample(10000)
