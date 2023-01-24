@@ -1,54 +1,51 @@
 # Load libraries, register cores, set seed
-library(ggplot2)
-library(ggsci)
 library(data.table)
-library(ranger)
+library(arf)
 library(fdm2id)
 library(mlbench)
+library(ggplot2)
+library(ggsci)
 library(doMC)
 registerDoMC(8)
-set.seed(123)
-
-# Load ARF
-source('arf.R')
+set.seed(123, "L'Ecuyer-CMRG")
 
 # Simulation function
-sim_fun <- function(n, dataset) {
+sim_fun <- function(n_trn, n_tst, dataset) {
   # Simulate data
   if (dataset == 'twomoons') {
-    x <- data.twomoons(n = n, graph = FALSE)
+    x <- data.twomoons(n = n_trn/2, graph = FALSE)
     x$Class <- gsub('Class ', '', x$Class)
   } else {
     if (dataset == 'cassini') {
-      tmp <- mlbench.cassini(n)
+      tmp <- mlbench.cassini(n_trn)
     } else if (dataset == 'smiley') {
-      tmp <- mlbench.smiley(n)
+      tmp <- mlbench.smiley(n_trn)
     } else if (dataset == 'shapes') {
-      tmp <- mlbench.shapes(n)
+      tmp <- mlbench.shapes(n_trn)
     }
     x <- data.frame(tmp$x, tmp$classes)
     colnames(x) <- c('X', 'Y', 'Class')
   }
   # Fit model, generate data
-  arf <- adversarial_rf(x, num_trees = 10, mtry = 2, parallel = FALSE)
-  f <- forde(arf, x, loglik = FALSE, parallel = FALSE)
-  synth <- forge(f$psi, n)
+  arf <- adversarial_rf(x, num_trees = 20, mtry = 2, verbose = FALSE)
+  psi <- forde(arf, x)
+  synth <- forge(psi, n_tst)
   # Put it all together, export
-  df <- rbind(data.frame(Data = "Original", x), 
-              data.frame(Data = "Synthetic", synth))
-  df$Dataset <- dataset
-  return(df)
+  df_orig <- data.table(Data = "Original", x[sample(n_trn, n_tst), ])
+  rbind(df_orig, data.table(Data = "Synthetic", synth))[, Dataset := dataset]
 }
 
 # Execute in parallel
 dsets <- c('twomoons', 'cassini', 'smiley', 'shapes')
-df <- foreach(d = dsets, .combine = rbind) %dopar% sim_fun(1000, d)
+df <- foreach(d = dsets, .combine = rbind) %dopar% sim_fun(3000, 1000, d)
 
 # Scatter plot
 ggplot(df, aes(x = X, y = Y, color = Class, shape = Class)) + 
-  facet_grid(Data ~ Dataset) + 
   geom_point(alpha = 0.5) + 
+  scale_color_npg() + 
+  facet_grid(Data ~ Dataset, scales = 'free_x') + 
   theme_bw() + 
-  #theme(legend.position = 'bottom') +
-  scale_color_npg()
+  theme(text = element_text(size = 14), legend.position = 'none')
 ggsave(paste0("examples", ".pdf"), width = 8, height = 4)
+
+
