@@ -76,7 +76,7 @@ def synth_data(data_train, synthesizer= {'RCCGAN': 'RCCGAN'}):
 #####################
 # !!!! only one rep, choose first data instance of adult, census, etc.
 
-rep = range(1)
+#rep = range(1)
 
 print(f"RCCGAN sucessfully initialized, number of reps is {rep}")
 
@@ -96,12 +96,12 @@ metrics= credit_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
 pd.concat(credit_res).to_csv("RCCGAN_credit.csv")
 
 
-# covtype
+# covtype ## gets killed after a few hours? probably a memory issue
 #covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
 #metrics= covtype_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
 #pd.concat(covtype_res).to_csv("RCCGAN_covtype.csv")
 
-# intrusion
+# intrusion ## does not finish in 24h
 #intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
 #metrics= intrusion_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
 #pd.concat(intrusion_res).to_csv("RCCGAN_intrusion.csv")

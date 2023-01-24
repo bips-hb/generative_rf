@@ -68,21 +68,21 @@ def synth_data(data_train, synthesizer):
 #####################
 # !!!! only one rep, choose first data instance of adult, census, etc.
 
-rep = range(1)
+#rep = range(1)
 
 print(f"ITGAN sucessfully initialized, number of reps is {rep}")
 
 # adult
-#adult_res = run_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
-#metrics= adult_metrics, data_synthesizer= {"ITGAN": itgan_fun})
-#pd.concat(adult_res).to_csv("ITGAN_adult.csv")
+adult_res = run_benchmark(training_data= adult_train, test_data = adult_test, classifiers= adult_classifiers, 
+metrics= adult_metrics, data_synthesizer= {"ITGAN": itgan_fun})
+pd.concat(adult_res).to_csv("ITGAN_adult.csv")
 
-# census
+# census ## does not finish in 24h
 #census_res = run_benchmark(training_data = census_train, test_data = census_test, classifiers = census_classifiers,
 #metrics = census_metrics, data_synthesizer = {"ITGAN": itgan_fun})
 #pd.concat(census_res).to_csv("ITGAN_census.csv")
 
-# credit
+# credit ## does not finish in 24h
 #credit_res = run_benchmark(training_data= credit_train, test_data= credit_test, classifiers= credit_classifiers,
 #metrics= credit_metrics, data_synthesizer= {"ITGAN": itgan_fun})
 #pd.concat(credit_res).to_csv("ITGAN_credit.csv")

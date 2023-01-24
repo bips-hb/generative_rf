@@ -13,6 +13,7 @@ conda info --env
 #python RCCGAN.py
 conda activate itgan
 conda info --env
-python ITGAN_adult.py
-timeout 24h python ITGAN_census.py
-timeout 24h python ITGAN_credit.py
+python ITGAN.py
+#python ITGAN_adult.py
+#timeout 24h python ITGAN_census.py
+#timeout 24h python ITGAN_credit.py

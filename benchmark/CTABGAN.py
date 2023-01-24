@@ -56,7 +56,7 @@ def synth_data(data_train, synthesizer):
 #####################
 # !!!! only one rep, choose first data instance of adult, census, etc.
 
-rep = range(1)
+#rep = range(1)
 
 print(f"CTABGAN+ sucessfully initialized, number of reps is {rep}")
 
