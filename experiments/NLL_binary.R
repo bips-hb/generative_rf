@@ -29,11 +29,11 @@ nll_fn <- function(dataset) {
     arf <- adversarial_rf(trn, num_trees = 100, max_iters = 2, verbose = FALSE)
   )
   suppressWarnings(
-    fd <- forde(arf, x_trn = val, x_tst = tst, batch = 5000)
+    psi <- forde(arf, val)
   )
+  ll <- lik(arf, psi, tst, batch = 5000)
   # Export
-  out <- data.table('dataset' = dataset, 'n' = n, 'd' = d, 
-                    'NLL' = -mean(fd$loglik))
+  out <- data.table('dataset' = dataset, 'n' = n, 'd' = d, 'NLL' = -mean(ll))
   df <- readRDS('./experiments/NLL_binary.rds')
   df <- rbind(df, out)
   saveRDS(df, './experiments/NLL_binary.rds')
@@ -43,4 +43,17 @@ nll_fn <- function(dataset) {
 datasets <- list.files('./data')
 foreach(d = datasets) %do% nll_fn(d)
 
+
+
+
+
+fn <- function(dataset) {
+  trn <- fread(paste0('./data/', dataset, '/', dataset, '.train.data'))
+  n <- nrow(trn)
+  d <- ncol(trn)
+  data.table('dataset' = dataset, 'n' = n, 'd' = d)
+}
+df <- foreach(d = datasets, .combine = rbind) %do% fn(d)
+df <- df[!grepl('amzn', datasets)]
+df <- df[order(n)]
 
