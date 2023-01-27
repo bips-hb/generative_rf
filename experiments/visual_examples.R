@@ -7,7 +7,7 @@ library(ggplot2)
 library(ggsci)
 library(doMC)
 registerDoMC(8)
-set.seed(123, "L'Ecuyer-CMRG")
+set.seed(111, "L'Ecuyer-CMRG")
 
 # Simulation function
 sim_fun <- function(n_trn, n_tst, dataset) {
@@ -37,13 +37,15 @@ sim_fun <- function(n_trn, n_tst, dataset) {
 
 # Execute in parallel
 dsets <- c('twomoons', 'cassini', 'smiley', 'shapes')
-df <- foreach(d = dsets, .combine = rbind) %dopar% sim_fun(3000, 1000, d)
+df <- foreach(d = dsets, .combine = rbind) %dopar% sim_fun(2000, 1000, d)
+
+# Set scales free but fix x-axis ticks
 
 # Scatter plot
 ggplot(df, aes(x = X, y = Y, color = Class, shape = Class)) + 
   geom_point(alpha = 0.5) + 
   scale_color_npg() + 
-  facet_grid(Data ~ Dataset, scales = 'free_x') + 
+  facet_grid(Data ~ Dataset) + 
   theme_bw() + 
   theme(text = element_text(size = 14), legend.position = 'none')
 ggsave(paste0("examples", ".pdf"), width = 8, height = 4)
