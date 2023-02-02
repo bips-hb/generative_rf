@@ -25,8 +25,9 @@ nll_fn <- function(dataset) {
   d <- ncol(trn)
   colnames(trn) <- colnames(val) <- colnames(tst) <- paste0('x', 1:d)
   # Train
+  cat(paste0('Dataset: ', dataset, '\n'))
   suppressWarnings(
-    arf <- adversarial_rf(trn, num_trees = 100, max_iters = 2, verbose = FALSE)
+    arf <- adversarial_rf(trn, num_trees = 100)
   )
   suppressWarnings(
     psi <- forde(arf, val)
@@ -39,21 +40,21 @@ nll_fn <- function(dataset) {
   saveRDS(df, './experiments/NLL_binary.rds')
 }
 
-# Loop through data, compute log-likelihood
+# Loop through data, compute negative log-likelihood
 datasets <- list.files('./data')
+datasets <- datasets[!grepl('amzn', datasets)]
 foreach(d = datasets) %do% nll_fn(d)
 
 
-
-
-
-fn <- function(dataset) {
+# Meta data
+dat_summary <- function(dataset) {
   trn <- fread(paste0('./data/', dataset, '/', dataset, '.train.data'))
-  n <- nrow(trn)
-  d <- ncol(trn)
-  data.table('dataset' = dataset, 'n' = n, 'd' = d)
+  val <- fread(paste0('./data/', dataset, '/', dataset, '.valid.data'))
+  tst <- fread(paste0('./data/', dataset, '/', dataset, '.test.data'))
+  data.table('Dataset' = dataset, 'Train' = nrow(trn), 'Validation' = nrow(val),
+             'Test' = nrow(tst), 'Dimensionality' = ncol(trn))
 }
-df <- foreach(d = datasets, .combine = rbind) %do% fn(d)
+df <- foreach(d = datasets, .combine = rbind) %do% dat_summary(d)
 df <- df[!grepl('amzn', datasets)]
-df <- df[order(n)]
+df <- df[order(Train)]
 
