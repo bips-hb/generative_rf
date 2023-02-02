@@ -41,12 +41,12 @@ os.chdir("..")
 # run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu', range_i = range(32,40))
 
 # for dimensionality benchmark:
-# os.chdir("./runtime/results_dimensionality")
-# run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(7))
-# run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(7,14))
-# run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(14,21))
-# run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(21, 28))
-# run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(28,35))
+os.chdir("./runtime/results_dimensionality")
+run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(7))
+run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(7,14))
+run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(14,21))
+run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(21, 28))
+run_CTABGAN_sub(synthesizer_name= 'CTABGAN_gpu',range_i = range(28,35))
 
 
 # CPU benchmark:
