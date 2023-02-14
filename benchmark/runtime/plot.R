@@ -275,7 +275,8 @@ legend1 <- get_legend(
   plt_samplesize_train + theme(legend.position = "bottom")
 )
 plot_grid(p1, legend1, ncol = 1, rel_heights = c(0.9, .1))
-ggsave("time.pdf", width = 10, height = 5.7)
+ggsave("time.pdf", width = 11, height = 5)
+#ggsave("time.pdf", width = 10, height = 5.7)
 # bump in adult at dimensionality = 14 (~3 sec until d = 13, ~6 sec at d >= 14)
 p2 <- plot_grid(plt_samplesize_process_time_train + theme(legend.position = "none"),
           plt_samplesize_process_time_sample + theme(legend.position = "none"), 
@@ -287,5 +288,6 @@ legend2 <- get_legend(
   plt_samplesize_train + theme(legend.position = "bottom")
 )
 plot_grid(p2, legend2, ncol = 1, rel_heights = c(0.9, .1))
-ggsave("process_time2.pdf", width = 10, height = 5.7)
+#ggsave("process_time2.pdf", width = 10, height = 5.7)
+ggsave("process_time2.pdf", width = 11, height = 5)
 
