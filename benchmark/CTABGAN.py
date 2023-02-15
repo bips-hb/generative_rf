@@ -54,8 +54,9 @@ def synth_data(data_train, synthesizer):
 
 
 #####################
-# !!!! only one rep, choose first data instance of adult, census, etc.
-
+# ! for pretesting whether code runs in <24h, evaluate code on one replicate:
+# ! evaluate datasets one by one -> comment out other datasets during pretests
+# ! comment out the following line for single replicate 
 #rep = range(1)
 
 print(f"CTABGAN+ sucessfully initialized, number of reps is {rep}")
@@ -77,13 +78,13 @@ metrics= credit_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
 pd.concat(credit_res).to_csv("CTABGAN_credit.csv")
 
 
-# covtype
+# covtype # doesn't finish in 24h 
 #covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
 #metrics= covtype_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
 #pd.concat(covtype_res).to_csv("CTABGAN_covtype.csv")
 
 
-# intrusion
+# intrusion  # doesn't finish in 24h 
 #intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
 #metrics= intrusion_metrics, data_synthesizer= {"CTABGAN+": ctabgan_fun})
 #pd.concat(intrusion_res).to_csv("CTABGAN_intrusion.csv")
@@ -93,14 +94,14 @@ pd.concat(credit_res).to_csv("CTABGAN_credit.csv")
 # --------------
 # IMPORTANT note: to sample data points, CTABGAN needs at least 2 different levels, 
 # otherwise sampling never finishes -- take this into account when subsampling!
+# For example 
+#dd =intrusion_train[1].iloc[1:500,1:7]
+#dd.select_dtypes('object').columns.to_list()
+#dd.select_dtypes('int').columns.to_list()
 #syn = ctabgan_fun(real_data=dd)
 #syn.fit()
 #syn.generate_samples()
 
-#dd =intrusion_train[1].iloc[1:500,1:7]
-#dd.select_dtypes('object').columns.to_list()
-#dd.select_dtypes('int').columns.to_list()
-
-# another IMPORTANT note 
+# another IMPORTANT note:
 # CTABGAN leaves dead processes lying around 
-# one needs to clean them afterwards!
+# delete them manually from machine afterwards

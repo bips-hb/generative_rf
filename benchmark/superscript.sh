@@ -1,3 +1,6 @@
+# use this bash script for job submission
+# adjust script by commenting out thing you do/don't want to run
+
 #python grf_cpu.py
 #python TVAE_gpu.py
 #python TVAE_cpu.py

@@ -24,25 +24,6 @@ os.chdir("../../..")
 print(os.getcwd())
 
 
-#exa = adult_train[1].iloc[1:1000,]
-#data, discrete_columns =read_csv(data_frame=exa, 
-#list_of_all_variables = exa.columns.tolist(),
-#discrete= "workclass,education,marital-status,occupation,relationship,race,sex,native-country,label")
-#generator_dim = [int(x) for x in '256,256'.split(',')]
-  #  print(discrete_columns)
-#discriminator_dim = [int(x) for x in '256,256'.split(',')]
-#model = CTGANSynthesizer(
-#        embedding_dim=128, generator_dim=generator_dim,
-#        discriminator_dim=discriminator_dim, generator_lr=2e-4,
-#        generator_decay=1e-6, discriminator_lr=2e-4,
-#        discriminator_decay=0, batch_size=500,
-#        epochs=300)
-#model.fit(data,discrete_columns= discrete_columns)
-
-
-#num_samples = len(data)
-
-#sampled = model.sample(num_samples,None,None)
 
 # define synthetic data generation
 def synth_data(data_train, synthesizer= {'RCCGAN': 'RCCGAN'}):
@@ -74,8 +55,9 @@ def synth_data(data_train, synthesizer= {'RCCGAN': 'RCCGAN'}):
 
 
 #####################
-# !!!! only one rep, choose first data instance of adult, census, etc.
-
+# ! for pretesting whether code runs in <24h, evaluate code on one replicate:
+# ! evaluate datasets one by one -> comment out other datasets during pretests
+# ! comment out the following line for single replicate 
 #rep = range(1)
 
 print(f"RCCGAN sucessfully initialized, number of reps is {rep}")
@@ -96,7 +78,7 @@ metrics= credit_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
 pd.concat(credit_res).to_csv("RCCGAN_credit.csv")
 
 
-# covtype ## gets killed after a few hours? probably a memory issue
+# covtype ## kills itself - memory issues ## does not finish in 24h
 #covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
 #metrics= covtype_metrics, data_synthesizer=  {"RCCGAN": 'RCCGAN'})
 #pd.concat(covtype_res).to_csv("RCCGAN_covtype.csv")
@@ -106,6 +88,4 @@ pd.concat(credit_res).to_csv("RCCGAN_credit.csv")
 #metrics= intrusion_metrics, data_synthesizer= {"RCCGAN": 'RCCGAN'})
 #pd.concat(intrusion_res).to_csv("RCCGAN_intrusion.csv")
 
-#exa = covtype_train[1].iloc[1:1000,]
-#synth_data(data_train=exa)
 

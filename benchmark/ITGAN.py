@@ -43,31 +43,11 @@ def synth_data(data_train, synthesizer):
         print("please use ITGAN synthesizer")
 
 
-# example
-#url = 'https://raw.githubusercontent.com/sdv-dev/CTGAN/master/examples/csv/adult.csv'
-#data = pd.read_csv(url)
-#ex = itgan_fun(data)
-
-#bb = synth_data(data_train=dd, synthesizer=itgan_fun)
-
-# more examples on subsets
-
-#census_train = list(census_train)
-#census_train[0] = census_train[0].iloc[1:5000,]
-#census_train = tuple(census_train)
-#census_test = list(census_test)
-#census_test[0] = census_test[0].iloc[1:5000,]
-#census_test = tuple(census_test)
-#census_train[0].name = 'census'
-#census_test[0].name = 'census'
-
-#dd= census_train[0].copy()
-#oo = synth_data(data_train=dd, synthesizer=itgan_fun)
-#for col in dd.select_dtypes('object').columns: print(dd[col].unique())
 
 #####################
-# !!!! only one rep, choose first data instance of adult, census, etc.
-
+# ! for pretesting whether code runs in <24h, evaluate code on one replicate:
+# ! evaluate datasets one by one -> comment out other datasets during pretests
+# ! comment out the following line for single replicate 
 #rep = range(1)
 
 print(f"ITGAN sucessfully initialized, number of reps is {rep}")
@@ -87,3 +67,12 @@ pd.concat(adult_res).to_csv("ITGAN_adult.csv")
 #metrics= credit_metrics, data_synthesizer= {"ITGAN": itgan_fun})
 #pd.concat(credit_res).to_csv("ITGAN_credit.csv")
 
+# covtype ## does not finish in 24h
+#covtype_res = run_benchmark(training_data = covtype_train, test_data= covtype_test, classifiers= covtype_classifiers,
+#metrics= covtype_metrics, data_synthesizer=  {"ITGAN": itgan_fun})
+#pd.concat(covtype_res).to_csv("ITGAN_covtype.csv")
+
+# intrusion ## does not finish in 24h
+#intrusion_res = run_benchmark(training_data= intrusion_train, test_data= intrusion_test, classifiers= intrusion_classifiers,
+#metrics= intrusion_metrics, data_synthesizer= {"ITGAN": itgan_fun})
+#pd.concat(intrusion_res).to_csv("ITGAN_intrusion.csv")
